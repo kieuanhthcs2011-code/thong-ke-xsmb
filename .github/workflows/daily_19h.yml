@@ -1,4 +1,4 @@
-name: Tu Dong Cap Nhat XSMB 19h00
+name: Tu Dong Cap Nhat XSMB 19h00 & Deploy Firebase
 
 on:
   schedule:
@@ -10,20 +10,31 @@ permissions:
   contents: write
 
 jobs:
-  update-xsmb:
+  update-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Tai ma nguon
+      - name: Tai ma nguon tu GitHub
         uses: actions/checkout@v4
+
       - name: Cai dat Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Lay KQXS Mien Bac moi nhat
         run: python update_xsmb.py
-      - name: Luu du lieu moi len Web
+
+      - name: Luu data.json moi len GitHub
         run: |
-          git config --local user.email "bot@xsmb-auto.local"
-          git config --local user.name "XSMB Auto Bot"
+          git config --local user.email "bot@thongkesxmb.web.app"
+          git config --local user.name "ThongkeXSMB Bot"
           git add data.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "Cap nhat KQXS tu dong 19h00" && git push)
+
+      - name: Deploy len Firebase Hosting (thongkesxmb.web.app)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: thongkesxmb
