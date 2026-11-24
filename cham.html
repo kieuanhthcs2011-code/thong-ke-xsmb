@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trang 5: Sheet Chạm & Cầu Pascal (82 Cột) - Thongke.web.app</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <style>
+    .group-filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .grp-btn {
+      border: 1px solid #9cbce2;
+      background: #eef5fd;
+      color: #14365d;
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .grp-btn.active { background: #1e569b; color: #fff; border-color: #1e569b; }
+    .th-gdb { background: #1d6f42 !important; }
+    .th-pascal { background: #7030a0 !important; }
+    .th-sum { background: #b85d00 !important; }
+    .td-gdb { background: #f2fbf5; font-weight: 700; color: #0f3d0f; }
+    .td-pascal-final { background: #fff200; font-weight: 800; color: #c00000; }
+    .td-sum-p { background: #fce4d6; font-weight: 800; color: #833c0c; }
+  </style>
+</head>
+<body>
+<nav class="nav-menu">
+    <a href="index.html" class="nav-link">🏠 Trang Chủ</a>
+    <a href="tuan.html" class="nav-link">📅 Trang 1: GĐB Tuần</a>
+    <a href="dannuoi.html" class="nav-link">🎯 Trang 2: Dàn Nuôi</a>
+    <a href="bang35.html" class="nav-link">🟨 Trang 3: 35 Cột (Tổng)</a>
+    <a href="bang35_cham.html" class="nav-link">🟧 Trang 4: 35 Cột (Chạm 2 Số)</a>
+    <a href="ghep2so.html" class="nav-link">🟩 Trang 5: Ghép 2 Số</a>
+    <a href="tinh2.html" class="nav-link">🧮 Trang 6: Cầu Sheet Tính</a>
+    <a href="cham.html" class="nav-link active">📐 Trang 7: Sheet Chạm & Pascal</a>
+  </nav>
+  <div class="container">
+    <div class="toolbar">
+      <div class="legend">
+        <b>📐 TRANG 5: SHEET 1 (CHẠM & CẦU PASCAL TỰ ĐỘNG)</b>
+        <span style="color:#555;">Tự động tính toàn bộ công thức tách chữ số, cộng dồn tuần & Cầu Pascal 7 ngày</span>
+      </div>
+      <div class="controls">
+        <label>Hiển thị:
+          <select id="limit-select" onchange="renderPage()">
+            <option value="20" selected>20 tuần gần nhất</option>
+            <option value="52">52 tuần (1 năm)</option>
+            <option value="999">Toàn bộ (161 tuần)</option>
+          </select>
+        </label>
+        <button class="action-btn btn-excel" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="group-filter">
+        <b>Chế độ xem nhóm cột:</b>
+        <button class="grp-btn active" onclick="setColGroup('all', this)">Tất cả 5 nhóm cột (Đầy đủ)</button>
+        <button class="grp-btn" onclick="setColGroup('tach', this)">1. Tách số T2 → CN (Cột A–AE)</button>
+        <button class="grp-btn" onclick="setColGroup('cham', this)">2. Cầu Chạm & Cộng Dồn Tuần (Cột AM–AV)</button>
+        <button class="grp-btn" onclick="setColGroup('pascal', this)">3. Cầu Pascal & Tổng Pascal (Cột AX–BZ)</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="stat-table" id="tbl-cham"></table>
+    </div>
+
+    <div class="page-footer-nav">
+      <a href="dannuoi.html" class="q-btn">← Quay lại Trang 4: Dàn Nuôi & Chu Kỳ</a>
+      <a href="index.html" class="q-btn">Về Trang Chủ 🏠</a>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let currentGroup = 'all';
+
+    function setColGroup(grp, btn) {
+      currentGroup = grp;
+      document.querySelectorAll('.grp-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPage();
+    }
+
+    function renderPage() {
+      if (!globalData) return;
+      const limit = parseInt(document.getElementById('limit-select').value, 10);
+      const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
+      const weeks = allWeeks.slice(0, limit);
+      const auxMap = globalData.cham_aux_by_mon_gdb || {};
+
+      const showTach = (currentGroup === 'all' || currentGroup === 'tach');
+      const showCham = (currentGroup === 'all' || currentGroup === 'cham');
+      const showPascal = (currentGroup === 'all' || currentGroup === 'pascal');
+
+      let h = `<thead><tr><th rowspan="2">Tuần (T2 → CN)</th>`;
+      if (showTach) {
+        h += `<th colspan="2">T2 (AF)</th><th colspan="3">Giải phụ</th><th colspan="2">T2</th><th colspan="4">T3 (AG)</th><th colspan="4">T4 (AH)</th><th colspan="4">T5 (AI)</th><th colspan="4">T6 (AJ)</th><th colspan="4">T7 (AK)</th><th colspan="4">CN (AL)</th>`;
+      }
+      h += `<th colspan="7" class="th-gdb">GĐB Gốc 7 Ngày (Cột AF → AL)</th>`;
+      if (showCham) {
+        h += `<th colspan="10">Cầu Chạm & Cộng Dồn Tuần (Cột AM → AV)</th>`;
+      }
+      if (showPascal) {
+        h += `<th colspan="7" class="th-sum">Tổng 2 Số Pascal (AX → BD)</th>`;
+        h += `<th colspan="21" class="th-pascal">Chi Tiết Soi Cầu Pascal 7 Ngày (Cột BF → BZ)</th>`;
+      }
+      h += `</tr><tr>`;
+
+      if (showTach) {
+        const tachCols = [
+          "d+e(T2)", "d-e(T2)", "d+e(G7-4)", "d+e(G1)", "b(G1)",
+          "b(T2)", "c(T2)",
+          "c(T3)", "d+e(T3)", "d-e(T3)", "b(T3)",
+          "b(T4)", "c(T4)", "d+e(T4)", "d-e(T4)",
+          "b(T5)", "c(T5)", "e+d(T5)", "e-d(T5)",
+          "b(T6)", "c(T6)", "e+d(T6)", "e-d(T6)",
+          "b(T7)", "c(T7)", "e+d(T7)", "e-d(T7)",
+          "b(CN)", "c(CN)", "e+d(CN)", "e-d(CN)"
+        ];
+        h += tachCols.map(c => `<th>${c}</th>`).join("");
+      }
+
+      h += ["T2 (AF)", "T3 (AG)", "T4 (AH)", "T5 (AI)", "T6 (AJ)", "T7 (AK)", "CN (AL)"]
+        .map(c => `<th class="th-gdb">${c}</th>`).join("");
+
+      if (showCham) {
+        const chamCols = [
+          "c(T4)", "c(T7)", "c(CN)", "e+1(T5)", "e-1(T6)",
+          "b(G1-T7)", "b(G7-1)+a(G7-4)", "Tổng d(7N)", "Tổng b(7N)", "Tổng c(7N)"
+        ];
+        h += chamCols.map(c => `<th>${c}</th>`).join("");
+      }
+
+      if (showPascal) {
+        h += ["T2(AX)", "T3(AY)", "T4(AZ)", "T5(BA)", "T6(BB)", "T7(BC)", "CN(BD)"]
+          .map(c => `<th class="th-sum">${c}</th>`).join("");
+        const days = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+        days.forEach(d => {
+          h += `<th class="th-pascal">${d}-4s</th><th class="th-pascal">${d}-3s</th><th class="th-pascal">${d}-2s</th>`;
+        });
+      }
+      h += `</tr></thead><tbody>`;
+
+      weeks.forEach((wk, idx) => {
+        const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
+        const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
+        const r = computeChamSheetRow(wk, prevWk, auxMap);
+
+        h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>`;
+
+        if (showTach) {
+          const valsTach = [
+            r.A, r.B, r.C, r.D, r.E, r.F, r.G,
+            r.H, r.I, r.J, r.K,
+            r.L, r.M, r.N, r.O,
+            r.P, r.Q, r.R, r.S,
+            r.T, r.U, r.V, r.W,
+            r.X, r.Y, r.Z, r.AA,
+            r.AB, r.AC, r.AD, r.AE
+          ];
+          h += valsTach.map(v => `<td>${v}</td>`).join("");
+        }
+
+        h += [r.AF, r.AG, r.AH, r.AI, r.AJ, r.AK, r.AL]
+          .map(v => `<td class="td-gdb">${v || "—"}</td>`).join("");
+
+        if (showCham) {
+          const valsCham = [r.AM, r.AN, r.AO, r.AP, r.AQ, r.AR, r.AS, r.AT, r.AU, r.AV];
+          h += valsCham.map(v => `<td><b>${v}</b></td>`).join("");
+        }
+
+        if (showPascal) {
+          h += [r.AX, r.AY, r.AZ, r.BA, r.BB, r.BC, r.BD]
+            .map(v => `<td class="td-sum-p">${v}</td>`).join("");
+          r.pascals.forEach(p => {
+            h += `<td>${p.p4}</td><td>${p.p3}</td><td class="td-pascal-final">${p.p2}</td>`;
+          });
+        }
+
+        h += `</tr>`;
+      });
+
+      document.getElementById("tbl-cham").innerHTML = h + `</tbody>`;
+    }
+
+    loadSharedData(renderPage);
+  </script>
+</body>
+</html>

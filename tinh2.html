@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trang 5: Cầu Chạm / Tổng / Bộ (Sheet Tính) - Thongke.web.app</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <style>
+    .th-gdb { background: #1d6f42 !important; }
+    .th-gold { background: #b85d00 !important; }
+    .th-bo { background: #7030a0 !important; }
+    .td-gdb { background: #f2fbf5; font-weight: 700; color: #0f3d0f; }
+    .td-highlight { background: #fff200; font-weight: 800; color: #c00000; }
+    .td-bo { background: #f3e8ff; font-weight: 700; color: #4c1d95; }
+  </style>
+</head>
+<body>
+<nav class="nav-menu">
+    <a href="index.html" class="nav-link">🏠 Trang Chủ</a>
+    <a href="tuan.html" class="nav-link">📅 Trang 1: GĐB Tuần</a>
+    <a href="dannuoi.html" class="nav-link">🎯 Trang 2: Dàn Nuôi</a>
+    <a href="bang35.html" class="nav-link">🟨 Trang 3: 35 Cột (Tổng)</a>
+    <a href="bang35_cham.html" class="nav-link">🟧 Trang 4: 35 Cột (Chạm 2 Số)</a>
+    <a href="ghep2so.html" class="nav-link">🟩 Trang 5: Ghép 2 Số</a>
+    <a href="tinh2.html" class="nav-link active">🧮 Trang 6: Cầu Sheet Tính</a>
+    <a href="cham.html" class="nav-link">📐 Trang 7: Sheet Chạm & Pascal</a>
+  </nav>
+  <div class="container">
+    <div class="toolbar">
+      <div class="legend">
+        <b>🧮 TRANG 5: BẢNG CẦU CHẠM – TỔNG – BỘ THEO TUẦN (SHEET 2 "TÍNH" CỘT AA → BA)</b>
+        <span style="color:#555;">Tự động tách & cộng công thức từ 7 ngày GĐB và Giải Nhất Chủ Nhật</span>
+      </div>
+      <div class="controls">
+        <label>Hiển thị:
+          <select id="limit-select" onchange="renderPage()">
+            <option value="20" selected>20 tuần gần nhất</option>
+            <option value="52">52 tuần (1 năm)</option>
+            <option value="999">Toàn bộ (161 tuần)</option>
+          </select>
+        </label>
+        <button class="action-btn btn-excel" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="stat-table" id="tbl-tinh2"></table>
+    </div>
+
+    <div class="page-footer-nav">
+      <a href="dannuoi.html" class="q-btn">← Quay lại Trang 4: Dàn Nuôi & Chu Kỳ</a>
+      <a href="cham.html" class="q-btn">Tiếp theo: Trang 6 - Sheet Chạm & Cầu Pascal →</a>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    function renderPage() {
+      if (!globalData) return;
+      const limit = parseInt(document.getElementById('limit-select').value, 10);
+      const weeks = getNormalizedWeeks(globalData.weeks_gdb).slice(0, limit);
+      const g1cnMap = globalData.tinh_g1cn_by_mon_gdb || {};
+
+      let h = `<thead>
+        <tr>
+          <th rowspan="2">Tuần (T2 → CN)</th>
+          <th colspan="6">Cầu Tổng & Chạm Đầu Tuần (AA → AF)</th>
+          <th colspan="7" class="th-gdb">GĐB Gốc 7 Ngày (Cột AG → AM)</th>
+          <th colspan="6">Cầu G1-CN & Thứ 3 (AN → AS)</th>
+          <th colspan="5" class="th-gold">Cầu Thứ 5 & Thứ 6 (AT → BA)</th>
+          <th rowspan="2" class="th-bo">Dàn 8 Số Của Bộ (de)T5</th>
+        </tr>
+        <tr>
+          <th>tong(D+E)T2<br><small>(AA)</small></th>
+          <th>Tổng(3N)T5<br><small>(AB)</small></th>
+          <th>tổng(C+D)T5<br><small>(AC)</small></th>
+          <th>tong(d+e)T5<br><small>(AD)</small></th>
+          <th>Tổng(eT7+aCN)<br><small>(AE)</small></th>
+          <th>cham eT3+aT4<br><small>(AF)</small></th>
+          <th class="th-gdb">T2 (AG)</th>
+          <th class="th-gdb">T3 (AH)</th>
+          <th class="th-gdb">T4 (AI)</th>
+          <th class="th-gdb">T5 (AJ)</th>
+          <th class="th-gdb">T6 (AK)</th>
+          <th class="th-gdb">T7 (AL)</th>
+          <th class="th-gdb">CN (AM)</th>
+          <th>chạm(a+b G1CN)<br><small>(AN)</small></th>
+          <th>tong(a+b G1CN)<br><small>(AO)</small></th>
+          <th>tổng C(T3)<br><small>(AP)</small></th>
+          <th>tong(b+c)T3<br><small>(AQ)</small></th>
+          <th>tong(c+d)T3<br><small>(AR)</small></th>
+          <th>2s (C&D)T5<br><small>(AS)</small></th>
+          <th class="th-gold">tong(C&D)T6<br><small>(AT)</small></th>
+          <th class="th-gold">bộ (de)T5<br><small>(AU)</small></th>
+          <th class="th-gold">tong c T5<br><small>(AY)</small></th>
+          <th class="th-gold">Cham C T5<br><small>(AZ)</small></th>
+          <th class="th-gold">chạm(a+b)T5<br><small>(BA)</small></th>
+        </tr>
+      </thead><tbody>`;
+
+      weeks.forEach((wk, idx) => {
+        const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
+        const r = computeTinhCauRow(wk, g1cnMap);
+
+        h += `<tr>
+          <td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>
+          <td><b>${r.AA}</b></td>
+          <td>${r.AB}</td>
+          <td><b>${r.AC}</b></td>
+          <td><b>${r.AD}</b></td>
+          <td><b>${r.AE}</b></td>
+          <td><b>${r.AF}</b></td>
+          <td class="td-gdb">${r.AG || "—"}</td>
+          <td class="td-gdb">${r.AH || "—"}</td>
+          <td class="td-gdb">${r.AI || "—"}</td>
+          <td class="td-gdb">${r.AJ || "—"}</td>
+          <td class="td-gdb">${r.AK || "—"}</td>
+          <td class="td-gdb">${r.AL || "—"}</td>
+          <td class="td-gdb">${r.AM || "—"}</td>
+          <td class="td-highlight">${r.AN}</td>
+          <td class="td-highlight">${r.AO}</td>
+          <td><b>${r.AP}</b></td>
+          <td><b>${r.AQ}</b></td>
+          <td><b>${r.AR}</b></td>
+          <td><b>${r.AS}</b></td>
+          <td><b>${r.AT}</b></td>
+          <td class="td-bo">${r.AU}</td>
+          <td><b>${r.AY}</b></td>
+          <td><b>${r.AZ}</b></td>
+          <td><b>${r.BA}</b></td>
+          <td style="text-align:left; font-size:11px; color:#4c1d95;">${r.AU_bo}</td>
+        </tr>`;
+      });
+
+      document.getElementById("tbl-tinh2").innerHTML = h + `</tbody>`;
+    }
+
+    loadSharedData(renderPage);
+  </script>
+</body>
+</html>

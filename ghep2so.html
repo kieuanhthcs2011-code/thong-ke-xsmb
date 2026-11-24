@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trang 3: Ghép 2 Số ĐB → G3-6 (40 Ngày) - Thongke.web.app</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+  <header class="top-bar">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">Thongke.web.app</span>
+      <span class="brand-title">KẾT QUẢ & THỐNG KÊ XSMB TỰ ĐỘNG</span>
+    </a>
+    <div class="status-pill" id="status-text">Đang tải dữ liệu...</div>
+  </header>
+  <nav class="nav-menu">
+    <a href="index.html" class="nav-link">🏠 Trang Chủ</a>
+    <a href="tuan.html" class="nav-link">📅 Trang 1: GĐB Tuần</a>
+    <a href="dannuoi.html" class="nav-link">🎯 Trang 2: Dàn Nuôi</a>
+    <a href="bang35.html" class="nav-link">🟨 Trang 3: 35 Cột (Tổng)</a>
+    <a href="bang35_cham.html" class="nav-link">🟧 Trang 4: 35 Cột (Chạm 2 Số)</a>
+    <a href="ghep2so.html" class="nav-link active">🟩 Trang 5: Ghép 2 Số</a>
+    <a href="tinh2.html" class="nav-link">🧮 Trang 6: Cầu Sheet Tính</a>
+    <a href="cham.html" class="nav-link">📐 Trang 7: Sheet Chạm & Pascal</a>
+  </nav>
+  <div class="container">
+    <div class="toolbar">
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--green)"></i><b>Xanh lá:</b> Ghép 2 số (trong 5 số) trùng 2 số cuối GĐB hôm sau | Số trong ngoặc <code>(1, 2, 3...)</code> là số ngày chưa về liên tiếp</span>
+      </div>
+      <div class="controls">
+        <label>Số ngày thống kê:
+          <select id="days-select" onchange="renderPage()">
+            <option value="40" selected>40 ngày gần nhất</option>
+            <option value="60">60 ngày gần nhất</option>
+            <option value="999">Tất cả ngày đã lưu</option>
+          </select>
+        </label>
+        <button class="action-btn btn-excel" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table class="stat-table" id="tbl-3"></table></div>
+
+    <div class="page-footer-nav">
+      <a href="bang35_cham.html" class="q-btn">← Quay lại Trang 4: Bảng 35 Cột (Chạm 2 Số)</a>
+      <a href="tinh2.html" class="q-btn">Tiếp theo: Trang 6 - Cầu Sheet Tính →</a>
+    </div>
+  </div>
+  <script src="app.js"></script>
+  <script>
+    function renderPage() {
+      if (!globalData) return;
+      const daysLimit = parseInt(document.getElementById('days-select').value, 10);
+      const daily = globalData.daily_prizes;
+      const prizeCols = ["ĐB", "G1", "G2-1", "G2-2", "G3-1", "G3-2", "G3-3", "G3-4", "G3-5", "G3-6"];
+      let streaks = Array(10).fill(0);
+      const computedRows = [];
+
+      for (let i = 0; i < daily.length; i++) {
+        const row = daily[i];
+        const dtObj = parseVNDate(row.date);
+        const wdayName = getWeekdayName(dtObj);
+        if (i < daily.length - 1) {
+          const nextDb = daily[i + 1].prizes[0];
+          const nextDe = nextDb.slice(-2);
+          const cells = row.prizes.map((p, pIdx) => {
+            if (canForm2Digit(p, nextDe)) { streaks[pIdx] = 0; return { hit: true, html: `${p}<br>[Trúng ${nextDe}]` }; }
+            streaks[pIdx]++; return { hit: false, html: `${p}<br>(${streaks[pIdx]})` };
+          });
+          computedRows.push({ date: row.date, wdayName, nextHtml: `${nextDb} (<b>${nextDe}</b>)`, cells, pending: false });
+        } else {
+          const cells = row.prizes.map((p, pIdx) => ({ hit: false, html: `${p}<br>(Chưa về: ${streaks[pIdx]})` }));
+          computedRows.push({ date: row.date, wdayName, nextHtml: `<i>Chờ KQ 19h hôm sau</i>`, cells, pending: true });
+        }
+      }
+
+      const revRows = computedRows.slice(-daysLimit).reverse();
+      const noteId = 'dataNote';
+      let noteEl = document.getElementById(noteId);
+      if (!noteEl) { noteEl = document.createElement('div'); noteEl.id = noteId; noteEl.style.cssText = 'margin:8px 0;padding:8px 12px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;font-size:13px;'; const tb = document.querySelector('table'); tb.parentNode.insertBefore(noteEl, tb); }
+      noteEl.style.display = computedRows.length < daysLimit ? 'block' : 'none';
+      noteEl.textContent = `Hiện mới có ${computedRows.length} ngày dữ liệu; hệ thống sẽ tự bù đủ 45 ngày ở lần chạy GitHub Actions 19:00 tới.`;
+      let h = `<thead><tr><th>Ngày (Thứ)</th><th>ĐB hôm sau</th>${prizeCols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>`;
+      revRows.forEach(r => {
+        h += `<tr><td class="week-col"><b>${r.date}</b><span class="de-sub">${r.wdayName}</span></td><td>${r.nextHtml}</td>`;
+        r.cells.forEach(c => {
+          if (c.hit) h += `<td class="bg-green">${c.html}</td>`;
+          else if (r.pending) h += `<td style="background:#f1f3f5">${c.html}</td>`;
+          else h += `<td>${c.html}</td>`;
+        });
+        h += `</tr>`;
+      });
+      document.getElementById("tbl-3").innerHTML = h + `</tbody>`;
+    }
+    loadSharedData(renderPage);
+  </script>
+</body>
+</html>

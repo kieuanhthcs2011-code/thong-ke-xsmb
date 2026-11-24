@@ -8,6 +8,46 @@ RSS_URL = "https://xskt.com.vn/rss-feed/mien-bac-xsmb.rss"
 DATA_FILE = "data.json"
 VN_TZ = timezone(timedelta(hours=7))
 
+WEEKDAY_NAMES = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+
+def parse_rss_description(desc):
+    """Trích xuất đủ 27 giải (ĐB đến G7) từ chuỗi mô tả RSS XSMB."""
+    m_db = re.search(r"ĐB:\s*(\d{5})", desc)
+    m_g1 = re.search(r"1:\s*(\d{5})", desc)
+    m_g2 = re.search(r"2:\s*([\d\s-]+?)(?:\s*3:|$)", desc)
+    m_g3 = re.search(r"3:\s*([\d\s-]+?)(?:\s*4:|$)", desc)
+    m_g4 = re.search(r"4:\s*([\d\s-]+?)(?:\s*5:|$)", desc)
+    m_g5 = re.search(r"5:\s*([\d\s-]+?)(?:\s*6:|$)", desc)
+    m_g6 = re.search(r"6:\s*([\d\s-]+?)(?:\s*7:|$)", desc)
+    m_g7 = re.search(r"7:\s*([\d\s-]+)", desc)
+
+    if not (m_db and m_g1 and m_g2 and m_g3):
+        return None
+
+    db = m_db.group(1)
+    g1 = m_g1.group(1)
+    g2 = re.findall(r"\d{5}", m_g2.group(1))[:2]
+    g3 = re.findall(r"\d{5}", m_g3.group(1))[:6]
+    g4 = re.findall(r"\d{4}", m_g4.group(1))[:4] if m_g4 else []
+    g5 = re.findall(r"\d{4}", m_g5.group(1))[:6] if m_g5 else []
+    g6 = re.findall(r"\d{3}", m_g6.group(1))[:3] if m_g6 else []
+    g7 = re.findall(r"\d{2}", m_g7.group(1))[:4] if m_g7 else []
+
+    if len(g2) < 2 or len(g3) < 6:
+        return None
+
+    return {
+        "db": db,
+        "g1": g1,
+        "g2": g2,
+        "g3": g3,
+        "g4": g4,
+        "g5": g5,
+        "g6": g6,
+        "g7": g7,
+        "top10": [db, g1] + g2 + g3
+    }
+
 def fetch_xsmb_rss():
     req = urllib.request.Request(
         RSS_URL,
@@ -19,7 +59,6 @@ def fetch_xsmb_rss():
     for item in root.findall("./channel/item"):
         title = item.findtext("title") or ""
         desc = item.findtext("description") or ""
-        # Extract date DD/MM or DD/MM/YYYY from title
         m_date = re.search(r"(\d{1,2})/(\d{1,2})(?:/(\d{4}))?", title)
         if not m_date:
             continue
@@ -27,80 +66,182 @@ def fetch_xsmb_rss():
         month = int(m_date.group(2))
         year = int(m_date.group(3)) if m_date.group(3) else datetime.now(VN_TZ).year
         dt = datetime(year, month, day)
-        date_str = dt.strftime("%d/%m/%Y")
-
-        m_db = re.search(r"ĐB:\s*(\d{5})", desc)
-        m_g1 = re.search(r"1:\s*(\d{5})", desc)
-        m_g2 = re.search(r"2:\s*([\d\s-]+)", desc)
-        m_g3 = re.search(r"3:\s*([\d\s-]+)", desc)
-        if not (m_db and m_g1 and m_g2 and m_g3):
-            continue
-
-        db = m_db.group(1)
-        g1 = m_g1.group(1)
-        g2 = re.findall(r"\d{5}", m_g2.group(1))[:2]
-        g3 = re.findall(r"\d{5}", m_g3.group(1))[:6]
-        if len(g2) == 2 and len(g3) == 6:
+        parsed = parse_rss_description(desc)
+        if parsed:
             results.append({
-                "date": date_str,
-                "weekday": dt.weekday(), # 0=T2 .. 6=CN
-                "prizes": [db, g1] + g2 + g3
+                "date": dt.strftime("%d/%m/%Y"),
+                "dt": dt,
+                "weekday_idx": dt.weekday(),
+                "weekday_name": WEEKDAY_NAMES[dt.weekday()],
+                "parsed": parsed
             })
-    # Sort oldest to newest
-    results.sort(key=lambda x: datetime.strptime(x["date"], "%d/%m/%Y"))
+    results.sort(key=lambda x: x["dt"])
     return results
+
+def fetch_day_minhngoc(dt):
+    """Lấy đầy đủ 27 giải từ Minh Ngọc cho 1 ngày cụ thể."""
+    url = f"https://www.minhngoc.net.vn/ket-qua-xo-so/mien-bac/{dt.strftime('%d-%m-%Y')}.html"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", errors="ignore")
+    m_db = re.search(r'class="giaidb"[^>]*>\s*(\d{5})', html)
+    m_g1 = re.search(r'class="giai1"[^>]*>\s*(\d{5})', html)
+    m_g2 = re.search(r'class="giai2"[^>]*>(.*?)</td>', html, re.S)
+    m_g3 = re.search(r'class="giai3"[^>]*>(.*?)</td>', html, re.S)
+    m_g4 = re.search(r'class="giai4"[^>]*>(.*?)</td>', html, re.S)
+    m_g5 = re.search(r'class="giai5"[^>]*>(.*?)</td>', html, re.S)
+    m_g6 = re.search(r'class="giai6"[^>]*>(.*?)</td>', html, re.S)
+    m_g7 = re.search(r'class="giai7"[^>]*>(.*?)</td>', html, re.S)
+    if not (m_db and m_g1 and m_g2 and m_g3):
+        return None
+    g2 = re.findall(r"\d{5}", m_g2.group(1))[:2]
+    g3 = re.findall(r"\d{5}", m_g3.group(1))[:6]
+    g4 = re.findall(r"\d{4}", m_g4.group(1))[:4] if m_g4 else []
+    g5 = re.findall(r"\d{4}", m_g5.group(1))[:6] if m_g5 else []
+    g6 = re.findall(r"\d{3}", m_g6.group(1))[:3] if m_g6 else []
+    g7 = re.findall(r"\d{2}", m_g7.group(1))[:4] if m_g7 else []
+    if len(g2) < 2 or len(g3) < 6:
+        return None
+    return {
+        "db": m_db.group(1),
+        "g1": m_g1.group(1),
+        "g2": g2,
+        "g3": g3,
+        "g4": g4,
+        "g5": g5,
+        "g6": g6,
+        "g7": g7,
+        "top10": [m_db.group(1), m_g1.group(1)] + g2 + g3
+    }
+
+def upsert_week_gdb(weeks_gdb, dt, db):
+    mon_dt = dt - timedelta(days=dt.weekday())
+    sun_dt = mon_dt + timedelta(days=6)
+    mon_str = mon_dt.strftime("%d/%m/%Y")
+    label_str = f"{mon_dt.strftime('%d/%m')} - {sun_dt.strftime('%d/%m/%Y')}"
+
+    target_wk = None
+    for wk in weeks_gdb:
+        if wk.get("monday") == mon_str:
+            target_wk = wk
+            break
+
+    if target_wk is None:
+        target_wk = {
+            "monday": mon_str,
+            "label": label_str,
+            "nums": ["", "", "", "", "", "", ""]
+        }
+        weeks_gdb.append(target_wk)
+        weeks_gdb.sort(key=lambda w: datetime.strptime(w["monday"], "%d/%m/%Y"), reverse=True)
+
+    if target_wk["nums"][dt.weekday()] != db:
+        target_wk["nums"][dt.weekday()] = db
+        return True
+    return False
 
 def main():
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    rss_items = fetch_xsmb_rss()
-    if not rss_items:
-        print("Không lấy được dữ liệu mới từ RSS.")
-        return
-
-    existing_dates = {item["date"] for item in data["daily_prizes"]}
+    daily_map = {item["date"]: item["prizes"] for item in data["daily_prizes"]}
     updated = False
 
-    for item in rss_items:
-        date_str = item["date"]
-        db = item["prizes"][0]
-        wday = item["weekday"]
+    try:
+        rss_items = fetch_xsmb_rss()
+        for item in rss_items:
+            d_str = item["date"]
+            p = item["parsed"]
+            if d_str not in daily_map:
+                daily_map[d_str] = p["top10"]
+                updated = True
+            # Tự động tính 5 cột phụ của Sheet 1 (chạm) từ giải Nhất & giải Bảy Thứ 2 / Thứ 7
+            mon_dt_item = item["dt"] - timedelta(days=item["dt"].weekday())
+            # Tìm GĐB Thứ 2 của tuần đó
+            mon_gdb_val = p["db"] if item["weekday_idx"] == 0 else ""
+            if not mon_gdb_val:
+                for wk in data["weeks_gdb"]:
+                    if wk.get("monday") == mon_dt_item.strftime("%d/%m/%Y"):
+                        mon_gdb_val = wk["nums"][0]
+                        break
+            if mon_gdb_val:
+                aux_map = data.setdefault("cham_aux_by_mon_gdb", {})
+                rec = aux_map.setdefault(mon_gdb_val, {"c_g74": "", "d_g1": "", "e_bg1": "", "ar_bg1t7": "", "as_g71_g74": ""})
+                if item["weekday_idx"] == 0 and p.get("g1") and len(p.get("g7", [])) >= 4:
+                    g1_s = p["g1"]
+                    g7_4 = p["g7"][3]
+                    rec["c_g74"] = str((int(g7_4[0]) + int(g7_4[1])) % 10)
+                    rec["d_g1"] = str((int(g1_s[3]) + int(g1_s[4])) % 10)
+                    rec["e_bg1"] = g1_s[1]
+                    updated = True
+                if item["weekday_idx"] == 6 and p.get("g1"):
+                    g1_sun = p["g1"]
+                    g1cn_map = data.setdefault("tinh_g1cn_by_mon_gdb", {})
+                    g1cn_map[mon_gdb_val] = str((int(g1_sun[0]) + int(g1_sun[1])) % 10)
+                    updated = True
+                if item["weekday_idx"] == 5 and p.get("g1") and len(p.get("g7", [])) >= 4:
+                    g1_s = p["g1"]
+                    g7_1 = p["g7"][0]
+                    g7_4 = p["g7"][3]
+                    rec["ar_bg1t7"] = g1_s[1]
+                    rec["as_g71_g74"] = str((int(g7_1[1]) + int(g7_4[0])) % 10)
+                    updated = True
 
-        # 1. Update daily_prizes (for Tab 3: ĐB -> G3-6)
-        if date_str not in existing_dates:
-            data["daily_prizes"].append({
-                "date": date_str,
-                "prizes": item["prizes"]
-            })
-            existing_dates.add(date_str)
-            updated = True
-            print(f"Đã thêm ngày {date_str}: ĐB = {db}")
+            if upsert_week_gdb(data["weeks_gdb"], item["dt"], p["db"]):
+                updated = True
 
-        # 2. Update weeks_gdb (newest week at index 0, Monday=0 .. Sunday=6)
-        # If weekday == 0 (Monday) and top week already has Monday filled with a different number, insert a new week at top
-        top_week = data["weeks_gdb"][0]
-        if wday == 0:
-            if top_week[0] == "":
-                top_week[0] = db
+        # Cập nhật bảng kết quả đầy đủ 27 giải mới nhất cho Trang chủ
+        if rss_items:
+            newest = rss_items[-1]
+            np = newest["parsed"]
+            new_board = {
+                "date": newest["date"],
+                "weekday": newest["weekday_name"],
+                "db": np["db"],
+                "g1": np["g1"],
+                "g2": np["g2"],
+                "g3": np["g3"],
+                "g4": np["g4"],
+                "g5": np["g5"],
+                "g6": np["g6"],
+                "g7": np["g7"]
+            }
+            if data.get("latest_full_board", {}).get("date") != new_board["date"]:
+                data["latest_full_board"] = new_board
                 updated = True
-            elif top_week[0] != db:
-                new_week = [db, "", "", "", "", "", ""]
-                data["weeks_gdb"].insert(0, new_week)
-                updated = True
-        else:
-            if top_week[wday] != db:
-                top_week[wday] = db
-                updated = True
+    except Exception as e:
+        print("Lỗi đọc RSS:", e)
+
+    # Tự động bù lịch sử đủ 45 ngày gần nhất cho Bảng 3 (40 ngày)
+    if len(daily_map) < 45:
+        all_dts = [datetime.strptime(d, "%d/%m/%Y") for d in daily_map.keys()]
+        newest_dt = max(all_dts) if all_dts else datetime.now(VN_TZ).replace(tzinfo=None)
+        for offset in range(1, 46):
+            check_dt = newest_dt - timedelta(days=offset)
+            c_str = check_dt.strftime("%d/%m/%Y")
+            if c_str not in daily_map:
+                try:
+                    p = fetch_day_minhngoc(check_dt)
+                    if p:
+                        daily_map[c_str] = p["top10"]
+                        upsert_week_gdb(data["weeks_gdb"], check_dt, p["db"])
+                        updated = True
+                except Exception:
+                    pass
+
+    sorted_daily = [
+        {"date": d, "prizes": daily_map[d]}
+        for d in sorted(daily_map.keys(), key=lambda x: datetime.strptime(x, "%d/%m/%Y"))
+    ][-90:]
+    data["daily_prizes"] = sorted_daily
 
     if updated:
         now_vn = datetime.now(VN_TZ).strftime("%d/%m/%Y %H:%M")
         data["last_updated"] = now_vn
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print("Cập nhật data.json thành công lúc", now_vn)
+        print("Đã cập nhật Thongke.web.app lúc", now_vn)
     else:
-        print("Dữ liệu đã mới nhất, không có thay đổi.")
+        print("Dữ liệu đã mới nhất.")
 
 if __name__ == "__main__":
     main()

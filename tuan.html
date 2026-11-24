@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trang 1: GĐB Theo Tuần - Thongke.web.app</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+  <header class="top-bar">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">Thongke.web.app</span>
+      <span class="brand-title">KẾT QUẢ & THỐNG KÊ XSMB TỰ ĐỘNG</span>
+    </a>
+    <div class="status-pill" id="status-text">Đang tải dữ liệu...</div>
+  </header>
+  <nav class="nav-menu">
+    <a href="index.html" class="nav-link">🏠 Trang Chủ</a>
+    <a href="tuan.html" class="nav-link active">📅 Trang 1: GĐB Tuần</a>
+    <a href="dannuoi.html" class="nav-link">🎯 Trang 2: Dàn Nuôi</a>
+    <a href="bang35.html" class="nav-link">🟨 Trang 3: 35 Cột (Tổng)</a>
+    <a href="bang35_cham.html" class="nav-link">🟧 Trang 4: 35 Cột (Chạm 2 Số)</a>
+    <a href="ghep2so.html" class="nav-link">🟩 Trang 5: Ghép 2 Số</a>
+    <a href="tinh2.html" class="nav-link">🧮 Trang 6: Cầu Sheet Tính</a>
+    <a href="cham.html" class="nav-link">📐 Trang 7: Sheet Chạm & Pascal</a>
+  </nav>
+  <div class="container">
+    <div class="toolbar">
+      <div class="legend"><b>📅 TRANG 1: THỐNG KÊ GIẢI ĐẶC BIỆT THEO TUẦN (TUẦN MỚI PHÍA TRÊN)</b></div>
+      <div class="controls">
+        <label>Hiển thị:
+          <select id="limit-select" onchange="renderPage()">
+            <option value="20" selected>20 tuần gần nhất</option>
+            <option value="52">52 tuần (1 năm)</option>
+            <option value="999">Toàn bộ (161 tuần)</option>
+          </select>
+        </label>
+        <button class="action-btn btn-excel" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <b>🔍 Đánh dấu nhanh:</b>
+      <label>Chạm:
+        <select id="filter-cham" onchange="renderPage()">
+          <option value="">-- Tất cả --</option>
+          <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
+        </select>
+      </label>
+      <label>Tổng Đề:
+        <select id="filter-tong" onchange="renderPage()">
+          <option value="">-- Tất cả --</option>
+          <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
+        </select>
+      </label>
+      <label>2 số cuối: <input type="text" id="filter-de" class="filter-input" maxlength="2" placeholder="VD: 89" style="width:65px" oninput="renderPage()" /></label>
+    </div>
+    <div class="table-wrap"><table class="stat-table" id="tbl-1"></table></div>
+
+    <div class="page-footer-nav">
+      <a href="index.html" class="q-btn">← Quay lại Trang Chủ</a>
+      <a href="dannuoi.html" class="q-btn">Tiếp theo: Trang 2 - Dàn Nuôi & Chạm-Tổng →</a>
+    </div>
+  </div>
+  <script src="app.js"></script>
+  <script>
+    function renderPage() {
+      if (!globalData) return;
+      const limit = parseInt(document.getElementById('limit-select').value, 10);
+      const fCham = document.getElementById('filter-cham').value;
+      const fTong = document.getElementById('filter-tong').value;
+      const fDe = document.getElementById('filter-de').value.trim();
+
+      const weeks = getNormalizedWeeks(globalData.weeks_gdb).slice(0, limit);
+      const daysName = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+      let h = `<thead><tr><th>Tuần (Từ T2 → CN)</th>${daysName.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>`;
+      weeks.forEach((wk, idx) => {
+        const tag = idx === 0 ? "Tuần hiện tại" : `Tuần -${idx}`;
+        h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>`;
+        for (let d = 0; d < 7; d++) {
+          const cDt = new Date(wk.mDt); cDt.setDate(wk.mDt.getDate() + d);
+          const dShort = formatShortDate(cDt);
+          const val = wk.nums[d] || "";
+          if (val) {
+            const de = val.slice(-2), t = sumLast2(val);
+            let match = false;
+            if (fCham || fTong || fDe) {
+              match = true;
+              if (fCham && !de.includes(fCham)) match = false;
+              if (fTong && String(t) !== fTong) match = false;
+              if (fDe && de !== fDe) match = false;
+            }
+            h += `<td class="${match ? 'highlight-match' : ''}"><span class="date-tag">${dShort}</span><br><b>${val}</b><span class="de-sub">Đề ${de} · Tổng ${t}</span></td>`;
+          } else {
+            h += `<td style="color:#aaa"><span class="date-tag" style="color:#aaa">${dShort}</span><br>—</td>`;
+          }
+        }
+        h += `</tr>`;
+      });
+      document.getElementById("tbl-1").innerHTML = h + `</tbody>`;
+    }
+    loadSharedData(renderPage);
+  </script>
+</body>
+</html>

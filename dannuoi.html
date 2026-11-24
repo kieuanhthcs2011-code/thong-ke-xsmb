@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trang 4: Dàn Nuôi Cột R-S-T & Dàn Trong Ảnh - Thongke.web.app</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <style>
+    .sub-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+    .sub-btn {
+      border: 1px solid #9cbce2;
+      background: #eef5fd;
+      color: #14365d;
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .sub-btn.active { background: #1e569b; color: #fff; border-color: #1e569b; }
+    .tag-grp {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .tag-img { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .tag-rst { background: #e2e8f0; color: #1e293b; border: 1px solid #cbd5e1; }
+    .gan-inline-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+    }
+    .gan-inline-badge.is-zero {
+      background: #dcfce7;
+      color: #15803d;
+      border-color: #86efac;
+    }
+    .gan-inline-badge.is-warn {
+      background: #fef08a;
+      color: #a16207;
+      border-color: #fde047;
+    }
+    .th-gan-pill {
+      display: inline-block;
+      margin-top: 3px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #fff200;
+      color: #b80000;
+    }
+    .th-gan-pill.is-zero {
+      background: #92d050;
+      color: #0f3d0f;
+    }
+  </style>
+</head>
+<body>
+  <header class="top-bar">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">Thongke.web.app</span>
+      <span class="brand-title">KẾT QUẢ & THỐNG KÊ XSMB TỰ ĐỘNG</span>
+    </a>
+    <div class="status-pill" id="status-text">Đang tải dữ liệu...</div>
+  </header>
+  <nav class="nav-menu">
+    <a href="index.html" class="nav-link">🏠 Trang Chủ</a>
+    <a href="tuan.html" class="nav-link">📅 Trang 1: GĐB Tuần</a>
+    <a href="dannuoi.html" class="nav-link active">🎯 Trang 2: Dàn Nuôi</a>
+    <a href="bang35.html" class="nav-link">🟨 Trang 3: 35 Cột (Tổng)</a>
+    <a href="bang35_cham.html" class="nav-link">🟧 Trang 4: 35 Cột (Chạm 2 Số)</a>
+    <a href="ghep2so.html" class="nav-link">🟩 Trang 5: Ghép 2 Số</a>
+    <a href="tinh2.html" class="nav-link">🧮 Trang 6: Cầu Sheet Tính</a>
+    <a href="cham.html" class="nav-link">📐 Trang 7: Sheet Chạm & Pascal</a>
+  </nav>
+
+  <div class="container">
+    <div class="toolbar" style="margin-bottom:12px; border-radius:6px;">
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--green)"></i><b>Vừa về hôm nay (0 ngày)</b></span>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Sắp chạm Max (≥ 75% chu kỳ)</b></span>
+        <span><i class="swatch" style="background:#ff4d4f"></i><b>Chạm / Vượt Max chu kỳ</b></span>
+      </div>
+      <div class="controls">
+        <label><b>Khung ngày theo dõi chi tiết:</b>
+          <select id="matrix-days-select" onchange="renderPage()" style="font-weight:700; color:#14365d; border-color:#1e569b;">
+            <option value="30">30 ngày gần nhất</option>
+            <option value="50" selected>50 ngày gần nhất (Xem dàn gan dài)</option>
+            <option value="70">70 ngày gần nhất (Xem dàn gan sâu)</option>
+            <option value="100">100 ngày gần nhất</option>
+          </select>
+        </label>
+        <button class="action-btn btn-excel" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
+      </div>
+    </div>
+
+    <div class="sub-tabs">
+      <button class="sub-btn active" onclick="filterDanGroup('all', this)">Tất cả 31 Dàn (22 Chú thích Cột T + 9 Dàn trong ảnh)</button>
+      <button class="sub-btn" onclick="filterDanGroup('Chú thích Cột T', this)">Chỉ xem 22 Dàn Chú Thích Cột T (T3 → T44)</button>
+      <button class="sub-btn" onclick="filterDanGroup('Dàn trong ảnh', this)">Chỉ xem 9 Dàn trong ảnh (Nuôi tháng, Dần/Dậu/Tý/Tị, 65s)</button>
+      <button class="sub-btn" style="border-color:#d97706; color:#92400e; background:#fef3c7;" onclick="filterDanGroup('gan_lau', this)">🔥 Lọc dàn đang gan lâu (≥ 15 ngày)</button>
+    </div>
+
+    <!-- BẢNG 1: TỔNG HỢP NGÀY VỀ & NGÀY CHƯA VỀ CỦA TỪNG DÀN (CÓ BÁO "GAN X NGÀY" NGAY Ở TÊN DÀN) -->
+    <div class="card-panel">
+      <div class="card-header">
+        <span>1. BẢNG THEO DÕI NGÀY VỀ & SỐ NGÀY CHƯA VỀ (BÁO SỐ NGÀY GAN NGAY Ở TÊN MỖI DÀN)</span>
+        <span style="font-size:11px; font-weight:normal;">Bấm vào tên dàn để xem chi tiết các con số</span>
+      </div>
+      <div style="overflow-x:auto; max-height:72vh;">
+        <table class="stat-table" id="tbl-nuoi-chuky"></table>
+      </div>
+    </div>
+
+    <!-- BẢNG 2: BẢNG CHÉO THEO DÕI TỪNG NGÀY (30 / 50 / 70 / 100 NGÀY GẦN NHẤT) -->
+    <div class="card-panel">
+      <div class="card-header">
+        <span id="matrix-card-title">2. BẢNG THEO DÕI CHI TIẾT TỪNG NGÀY (50 NGÀY GẦN NHẤT — NGÀY VỀ TÔ XANH, CHƯA VỀ ĐẾM 1, 2, 3...)</span>
+        <span style="font-size:11px; font-weight:normal;">Kéo ngang để xem đủ tất cả các cột dàn</span>
+      </div>
+      <div style="overflow-x:auto; max-height:70vh;">
+        <table class="stat-table" id="tbl-nuoi-daily-matrix"></table>
+      </div>
+    </div>
+
+    <div class="nuoi-layout">
+      <div>
+        <div class="card-panel">
+          <div class="card-header">
+            <span>3. BẢNG MAX | DÀN CHẠM - TỔNG (C1,T1 → C9,T9) | CHƯA RA</span>
+          </div>
+          <div style="overflow-x:auto;"><table class="stat-table" id="tbl-nuoi-chamtong"></table></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card-panel">
+          <div class="card-header"><span>4. BẢNG TÍNH GỐC & LÃI NUÔI KHUNG 7 NGÀY (2-4-7-11-16-22-30)</span></div>
+          <div style="padding:10px; background:#f8fafc; border-bottom:1px solid #ddd; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <label>Số con dàn: <input type="number" id="calc-so" class="calc-input" value="36" oninput="renderMoneyCalc()"></label>
+            <label>Mức ăn (1 ăn): <input type="number" id="calc-an" class="calc-input" value="98" oninput="renderMoneyCalc()"></label>
+            <label>Đơn giá (nghìn): <input type="number" id="calc-gia" class="calc-input" value="1" step="0.5" oninput="renderMoneyCalc()"></label>
+          </div>
+          <div style="overflow-x:auto;"><table class="stat-table" id="tbl-nuoi-tien"></table></div>
+        </div>
+
+        <div class="card-panel">
+          <div class="card-header"><span>5. THÊM DÀN CÁ NHÂN ĐANG NUÔI (TỰ LƯU TRÊN MÁY)</span></div>
+          <div style="padding:10px;">
+            <div style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+              <input type="text" id="custom-name" placeholder="Tên dàn (VD: Bộ 01)" style="padding:5px; border:1px solid #ccc; border-radius:4px; flex:1;">
+              <input type="text" id="custom-nums" placeholder="Các số (VD: 01,10,06,60...)" style="padding:5px; border:1px solid #ccc; border-radius:4px; flex:2;">
+              <input type="number" id="custom-max" placeholder="Khung" value="7" style="width:75px; padding:5px; border:1px solid #ccc; border-radius:4px;">
+              <button class="action-btn" onclick="addCustomDan()">+ Thêm</button>
+            </div>
+            <table class="stat-table" id="tbl-custom-dan"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BẢNG 6: THỐNG KÊ CÁC DÀN TRONG ẢNH MỚI (BC -> BT) & TỰ ĐỘNG BÁO DÀN TRÙNG NHAU -->
+    <div class="card-panel" style="margin-top:14px;">
+      <div class="card-header">
+        <span>6. THỐNG KÊ CÁC DÀN TRONG ẢNH MỚI (CHẠM, TỔNG, BỘ, KÉP, KHỐI MÀU & DÀN BR-BT) — TỰ ĐỘNG BÁO DÀN TRÙNG</span>
+        <span style="font-size:11px; font-weight:normal;" id="dup-summary-badge">Đang kiểm tra trùng dàn...</span>
+      </div>
+      <div style="padding:8px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12px;">
+        <button class="sub-btn active" onclick="filterF3F9('all', this)">Tất cả dàn ảnh mới</button>
+        <button class="sub-btn" onclick="filterF3F9('dup', this)" style="border-color:#dc2626; color:#991b1b; background:#fee2e2;">⚠️ Chỉ hiện dàn trùng nhau (Có thể bỏ qua)</button>
+        <button class="sub-btn" onclick="filterF3F9('unique', this)">✓ Chỉ hiện dàn không trùng</button>
+      </div>
+      <div style="overflow-x:auto; max-height:70vh;">
+        <table class="stat-table" id="tbl-f3f9-dans"></table>
+      </div>
+    </div>
+
+    <div class="page-footer-nav">
+      <a href="tuan.html" class="q-btn">← Quay lại Trang 1: GĐB Theo Tuần</a>
+      <a href="bang35.html" class="q-btn">Tiếp theo: Trang 3 - Bảng 35 Cột (Theo Tổng) →</a>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+
+    let f3f9FilterMode = 'all';
+    function filterF3F9(mode, btn) {
+      f3f9FilterMode = mode;
+      btn.parentElement.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPage();
+    }
+
+    let selectedDanGroup = 'all';
+
+    function filterDanGroup(grp, btn) {
+      selectedDanGroup = grp;
+      document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPage();
+    }
+
+    function renderMoneyCalc() {
+      const soCon = parseFloat(document.getElementById("calc-so").value) || 36;
+      const mucAn = parseFloat(document.getElementById("calc-an").value) || 98;
+      const donGia = parseFloat(document.getElementById("calc-gia").value) || 1;
+      const steps = [2, 4, 7, 11, 16, 22, 30];
+      let h = `<thead><tr><th>Ngày</th><th>N1</th><th>N2</th><th>N3</th><th>N4</th><th>N5</th><th>N6</th><th>N7</th></tr></thead><tbody>`;
+      h += `<tr><td><b>Điểm/con</b></td>${steps.map(s => `<td><b>${s * donGia}</b></td>`).join("")}</tr>`;
+      let cumCost = 0; const costs = [], profits = [];
+      steps.forEach(s => {
+        const pt = s * donGia; cumCost += pt * soCon;
+        costs.push(Math.round(cumCost)); profits.push(Math.round(pt * mucAn - cumCost));
+      });
+      h += `<tr><td><b>Tổng gốc</b></td>${costs.map(c => `<td>${c.toLocaleString('vi-VN')}k</td>`).join("")}</tr>`;
+      h += `<tr class="bg-green"><td><b>Lãi nếu nổ</b></td>${profits.map(p => `<td>+${p.toLocaleString('vi-VN')}k</td>`).join("")}</tr></tbody>`;
+      document.getElementById("tbl-nuoi-tien").innerHTML = h;
+    }
+
+    function getCustomDans() {
+      try { return JSON.parse(localStorage.getItem("thongke_custom_dans") || "[]"); } catch (e) { return []; }
+    }
+    function addCustomDan() {
+      const name = document.getElementById("custom-name").value.trim();
+      const raw = document.getElementById("custom-nums").value.trim();
+      const maxDays = parseInt(document.getElementById("custom-max").value, 10) || 7;
+      if (!name || !raw) { alert("Vui lòng nhập tên dàn và danh sách số!"); return; }
+      const nums = raw.split(/[\s,.;-]+/).map(x => x.trim().padStart(2, '0')).filter(x => /^\d{2}$/.test(x));
+      if (!nums.length) { alert("Danh sách số chưa hợp lệ!"); return; }
+      const list = getCustomDans(); list.push({ name, nums: Array.from(new Set(nums)), maxDays });
+      localStorage.setItem("thongke_custom_dans", JSON.stringify(list));
+      document.getElementById("custom-name").value = ""; document.getElementById("custom-nums").value = "";
+      renderPage();
+    }
+    function removeCustomDan(idx) {
+      const list = getCustomDans(); list.splice(idx, 1);
+      localStorage.setItem("thongke_custom_dans", JSON.stringify(list));
+      renderPage();
+    }
+
+    function renderPage() {
+      if (!globalData) return;
+      const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
+      const histGDB = getAllHistoricalGDB(allWeeks); // oldest -> newest
+      const all100 = Array.from({ length: 100 }, (_, i) => String(i).padStart(2, '0'));
+      const matrixDays = parseInt(document.getElementById('matrix-days-select').value, 10) || 50;
+
+      document.getElementById('matrix-card-title').innerText =
+        `2. BẢNG THEO DÕI CHI TIẾT TỪNG NGÀY (${matrixDays} NGÀY GẦN NHẤT — NGÀY VỀ TÔ XANH, CHƯA VỀ ĐẾM 1, 2, 3...)`;
+
+      // Precompute stats for every dàn so we can attach "gan X ngày" directly to the name
+      const enriched = getDanConfigs().map(cfg => {
+        const st = computeDanStats(histGDB, new Set(cfg.nums));
+        return { ...cfg, st };
+      });
+
+      const configs = enriched.filter(c => {
+        if (selectedDanGroup === 'all') return true;
+        if (selectedDanGroup === 'gan_lau') return c.st.daysSince >= 15;
+        return c.group === selectedDanGroup;
+      });
+
+      // 1. Bảng tổng hợp Ngày về & Ngày chưa về (Tên dàn hiển thị kèm "gan X ngày")
+      let hCk = `<thead><tr>
+        <th>STT</th>
+        <th>Nguồn</th>
+        <th>Tên Dàn Nuôi (Kèm số ngày gan hiện tại)</th>
+        <th>Số con</th>
+        <th>Ngày về gần nhất (Đề)</th>
+        <th>Số ngày chưa về</th>
+        <th>Chu kỳ Max (R)</th>
+        <th>Trạng thái</th>
+      </tr></thead><tbody>`;
+
+      configs.forEach((cfg, idx) => {
+        const st = cfg.st;
+        const maxRef = Math.max(cfg.excelMax, st.maxObserved);
+        let badge = `<span class="badge-status st-normal">Đang theo dõi</span>`, cls = "";
+        let ganPillClass = "gan-inline-badge";
+        let ganLabel = `gan ${st.daysSince} ngày`;
+
+        if (st.daysSince === 0) {
+          badge = `<span class="badge-status st-hit">Vừa về (${st.lastHitDe})</span>`;
+          cls = "bg-green";
+          ganPillClass = "gan-inline-badge is-zero";
+          ganLabel = `vừa về (0 ngày)`;
+        } else if (st.daysSince >= cfg.excelMax) {
+          badge = `<span class="badge-status st-max">Chạm/Vượt Max!</span>`;
+          cls = "bg-red-alert";
+        } else if (st.daysSince >= Math.floor(cfg.excelMax * 0.72)) {
+          badge = `<span class="badge-status st-watch">Sắp chạm Max</span>`;
+          cls = "bg-yellow";
+          ganPillClass = "gan-inline-badge is-warn";
+        }
+
+        const grpTag = cfg.group === "Dàn trong ảnh"
+          ? `<span class="tag-grp tag-img">Dàn trong ảnh</span>`
+          : `<span class="tag-grp tag-rst">Chú thích Cột T</span>`;
+
+        hCk += `<tr class="${cls}">
+          <td>${idx + 1}</td>
+          <td>${grpTag}</td>
+          <td style="text-align:left;">
+            <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+              ${cfg.name} — <span class="${ganPillClass}">${ganLabel}</span> <small style="color:#0969da;">[Xem số ▾]</small>
+            </div>
+            <div style="display:none; font-size:11px; color:#444; max-width:360px; white-space:normal; margin-top:4px; background:#f8fafc; padding:4px 6px; border-radius:4px; border:1px solid #e2e8f0;">
+              ${cfg.nums.join(", ")}
+            </div>
+          </td>
+          <td><b>${cfg.count}s</b></td>
+          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+          <td>${cfg.excelMax} ngày <span class="de-sub">(Thực tế: ${maxRef}ng)</span></td>
+          <td>${badge}</td>
+        </tr>`;
+      });
+      document.getElementById("tbl-nuoi-chuky").innerHTML = hCk + `</tbody>`;
+
+      // 2. Bảng ma trận theo dõi từng ngày (30 / 50 / 70 / 100 ngày gần nhất)
+      const setsArr = configs.map(c => new Set(c.nums));
+      const streaks = Array(configs.length).fill(0);
+      const dailyHistoryRows = [];
+
+      for (let i = 0; i < histGDB.length; i++) {
+        const item = histGDB[i];
+        const rowCells = setsArr.map((sSet, cIdx) => {
+          if (sSet.has(item.de)) {
+            streaks[cIdx] = 0;
+            return { hit: true, text: `Về (${item.de})` };
+          } else {
+            streaks[cIdx]++;
+            return { hit: false, text: `${streaks[cIdx]}` };
+          }
+        });
+        dailyHistoryRows.push({ date: item.date, db: item.db, de: item.de, cells: rowCells });
+      }
+
+      const sliceRows = dailyHistoryRows.slice(-matrixDays).reverse();
+      let hMat = `<thead><tr>
+        <th>Ngày</th>
+        <th>ĐB (Đề)</th>
+        ${configs.map(c => {
+          const gTxt = c.st.daysSince === 0 ? "về 0 ngày" : `gan ${c.st.daysSince} ngày`;
+          const pCls = c.st.daysSince === 0 ? "th-gan-pill is-zero" : "th-gan-pill";
+          return `<th>${c.short} (${c.count}s)<br><span class="${pCls}">${gTxt}</span></th>`;
+        }).join("")}
+      </tr></thead><tbody>`;
+
+      sliceRows.forEach(r => {
+        hMat += `<tr>
+          <td class="week-col"><b>${r.date}</b></td>
+          <td>${r.db} (<b>${r.de}</b>)</td>
+          ${r.cells.map(c => c.hit ? `<td class="bg-green">${c.text}</td>` : `<td>${c.text}</td>`).join("")}
+        </tr>`;
+      });
+      document.getElementById("tbl-nuoi-daily-matrix").innerHTML = hMat + `</tbody>`;
+
+      // 3. Bảng Max | Dàn (C1,T1 -> C9,T9) | Chưa Ra (Đúng thứ tự ảnh mới gửi + tự động cập nhật)
+      const ctConfigs = getChamTongConfigs();
+      let hCt = `<thead><tr>
+        <th>Max</th>
+        <th>Dàn (Bấm xem số)</th>
+        <th>Số con</th>
+        <th>Ngày về gần nhất</th>
+        <th>Chưa Ra (Hiện tại)</th>
+        <th>Trạng thái</th>
+      </tr></thead><tbody>`;
+      ctConfigs.forEach(item => {
+        const st = computeDanStats(histGDB, new Set(item.nums));
+        const mx = item.excelMax;
+        let cls = "", badge = `<span class="badge-status st-normal">Bình thường</span>`;
+        let gBadge = `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
+        if (st.daysSince === 0) {
+          cls = "bg-green";
+          badge = `<span class="badge-status st-hit">Vừa nổ (${st.lastHitDe})</span>`;
+          gBadge = `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`;
+        } else if (st.daysSince >= mx) {
+          cls = "bg-red-alert";
+          badge = `<span class="badge-status st-max">Chạm/Vượt Max!</span>`;
+        } else if (st.daysSince >= Math.floor(mx * 0.72)) {
+          cls = "bg-yellow";
+          badge = `<span class="badge-status st-watch">Sắp chạm Max</span>`;
+          gBadge = `<span class="gan-inline-badge is-warn">gan ${st.daysSince} ngày</span>`;
+        }
+        hCt += `<tr class="${cls}">
+          <td style="font-size:14px;"><b>${mx}</b></td>
+          <td style="text-align:left;">
+            <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+              ${item.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
+            </div>
+            <div style="display:none; font-size:11px; color:#444; max-width:260px; white-space:normal; margin-top:4px; background:#f8fafc; padding:4px 6px; border-radius:4px; border:1px solid #e2e8f0;">
+              ${item.nums.join(", ")}
+            </div>
+          </td>
+          <td>${item.nums.length}s</td>
+          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+          <td style="font-size:14px;"><b>${st.daysSince}</b></td>
+          <td>${badge}</td>
+        </tr>`;
+      });
+      document.getElementById("tbl-nuoi-chamtong").innerHTML = hCt + `</tbody>`;
+
+      renderMoneyCalc();
+
+      // 5. Dàn cá nhân (tên kèm "gan X ngày")
+      const customList = getCustomDans();
+      if (!customList.length) {
+        document.getElementById("tbl-custom-dan").innerHTML = `<tr><td style="color:#666; padding:10px;">Chưa có dàn cá nhân nào. Nhập dàn ở trên để tự đếm ngày về / ngày chưa về mỗi tối!</td></tr>`;
+      } else {
+        let hCus = `<thead><tr><th>Tên dàn (Kèm số ngày gan)</th><th>Dàn số</th><th>Ngày về</th><th>Chưa về</th><th>Khung</th><th>Xóa</th></tr></thead><tbody>`;
+        customList.forEach((item, idx) => {
+          const st = computeDanStats(histGDB, new Set(item.nums));
+          const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= item.maxDays ? "bg-red-alert" : "");
+          const gBadge = st.daysSince === 0
+            ? `<span class="gan-inline-badge is-zero">vừa về</span>`
+            : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
+          hCus += `<tr class="${cls}"><td style="text-align:left;"><b>${item.name}</b> — ${gBadge}</td><td class="dan-nums-cell">${item.nums.join(", ")}</td><td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td><td><b>${st.daysSince} ngày</b></td><td>${item.maxDays} ngày</td><td><button onclick="removeCustomDan(${idx})" style="cursor:pointer; color:red; border:none; background:none; font-weight:bold;">✕</button></td></tr>`;
+        });
+        document.getElementById("tbl-custom-dan").innerHTML = hCus + `</tbody>`;
+      }
+    }
+
+    // Patch renderPage to include section 6
+    const _origRenderPage = renderPage;
+    renderPage = function() {
+      _origRenderPage();
+      if (!globalData) return;
+      const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
+      const histGDB = getAllHistoricalGDB(allWeeks);
+
+      // 6. Render bảng các dàn trong ảnh mới (BC -> BT) & cảnh báo dàn trùng nhau
+      const f3ListAll = getImageF3F9A1Configs().map(cfg => {
+        const st = computeDanStats(histGDB, new Set(cfg.nums));
+        return { ...cfg, st };
+      });
+      const dupCount = f3ListAll.filter(x => !!x.dupOf).length;
+      const dupBadgeEl = document.getElementById("dup-summary-badge");
+      if (dupBadgeEl) {
+        dupBadgeEl.innerText = `Phát hiện ${dupCount} dàn trùng số (có thể bỏ qua để đỡ rối)`;
+      }
+
+      const f3List = f3ListAll.filter(x => {
+        if (f3f9FilterMode === 'dup') return !!x.dupOf;
+        if (f3f9FilterMode === 'unique') return !x.dupOf;
+        return true;
+      });
+
+      let hF3 = `<thead><tr>
+        <th>STT</th>
+        <th>Nhóm</th>
+        <th>Tên Dàn (Kèm gan & báo trùng)</th>
+        <th>Số con</th>
+        <th>Ngày về gần nhất</th>
+        <th>Số ngày chưa về</th>
+        <th>Max</th>
+        <th>Gợi ý trùng dàn</th>
+      </tr></thead><tbody>`;
+
+      f3List.forEach((cfg, idx) => {
+        const st = cfg.st;
+        let cls = "";
+        if (st.daysSince === 0) cls = "bg-green";
+        else if (st.daysSince >= cfg.excelMax) cls = "bg-red-alert";
+        else if (st.daysSince >= Math.floor(cfg.excelMax * 0.72)) cls = "bg-yellow";
+
+        const gBadge = st.daysSince === 0
+          ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
+          : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
+
+        const dupTag = cfg.dupOf
+          ? `<span style="color:#b91c1c; font-weight:700;">⚠️ Trùng "${cfg.dupOf}" (Có thể bỏ qua)</span>`
+          : `<span style="color:#15803d; font-weight:600;">Dàn riêng biệt</span>`;
+
+        hF3 += `<tr class="${cls}">
+          <td>${idx + 1}</td>
+          <td><span class="tag-grp tag-rst">${cfg.subGroup}</span></td>
+          <td style="text-align:left;">
+            <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+              ${cfg.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
+            </div>
+            <div style="display:none; font-size:11px; color:#444; max-width:340px; white-space:normal; margin-top:4px; background:#f8fafc; padding:4px 6px; border-radius:4px; border:1px solid #e2e8f0;">
+              ${cfg.nums.join(", ")}
+            </div>
+          </td>
+          <td><b>${cfg.nums.length}s</b></td>
+          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+          <td>${cfg.excelMax}ng</td>
+          <td style="text-align:left;">${dupTag}</td>
+        </tr>`;
+      });
+      document.getElementById("tbl-f3f9-dans").innerHTML = hF3 + `</tbody>`;
+
+    };
+    loadSharedData(renderPage);
+  </script>
+</body>
+</html>

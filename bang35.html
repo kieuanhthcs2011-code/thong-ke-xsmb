@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trang 2: Bảng 35 Cột (Tô Vàng) - Thongke.web.app</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+  <header class="top-bar">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">Thongke.web.app</span>
+      <span class="brand-title">KẾT QUẢ & THỐNG KÊ XSMB TỰ ĐỘNG</span>
+    </a>
+    <div class="status-pill" id="status-text">Đang tải dữ liệu...</div>
+  </header>
+  <nav class="nav-menu">
+    <a href="index.html" class="nav-link">🏠 Trang Chủ</a>
+    <a href="tuan.html" class="nav-link">📅 Trang 1: GĐB Tuần</a>
+    <a href="dannuoi.html" class="nav-link">🎯 Trang 2: Dàn Nuôi</a>
+    <a href="bang35.html" class="nav-link active">🟨 Trang 3: 35 Cột (Tổng)</a>
+    <a href="bang35_cham.html" class="nav-link">🟧 Trang 4: 35 Cột (Chạm 2 Số)</a>
+    <a href="ghep2so.html" class="nav-link">🟩 Trang 5: Ghép 2 Số</a>
+    <a href="tinh2.html" class="nav-link">🧮 Trang 6: Cầu Sheet Tính</a>
+    <a href="cham.html" class="nav-link">📐 Trang 7: Sheet Chạm & Pascal</a>
+  </nav>
+  <div class="container">
+    <div class="toolbar">
+      <div class="legend">
+        <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Trùng Tổng 2 số cuối của 7 ngày liên tiếp sau đó</span>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng:</b> Không trùng tập tổng 7 ngày sau</span>
+      </div>
+      <div class="controls">
+        <label>Hiển thị:
+          <select id="limit-select" onchange="renderPage()">
+            <option value="20" selected>20 tuần gần nhất</option>
+            <option value="52">52 tuần (1 năm)</option>
+            <option value="999">Toàn bộ (161 tuần)</option>
+          </select>
+        </label>
+        <button class="action-btn btn-excel" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table class="stat-table" id="tbl-2"></table></div>
+
+    <div class="page-footer-nav">
+      <a href="dannuoi.html" class="q-btn">← Quay lại Trang 2: Dàn Nuôi</a>
+      <a href="bang35_cham.html" class="q-btn">Tiếp theo: Trang 4 - Bảng 35 Cột (Chạm 2 Số Cuối) →</a>
+    </div>
+  </div>
+  <script src="app.js"></script>
+  <script>
+    function renderPage() {
+      if (!globalData) return;
+      const limit = parseInt(document.getElementById('limit-select').value, 10);
+      const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
+      const weeks = allWeeks.slice(0, limit);
+      const daysName = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+
+      let h = `<thead><tr><th rowspan="2">Tuần (Ngày T2 → CN)</th><th rowspan="2">Tập Tổng 7 ngày sau</th>`;
+      daysName.forEach((d, i) => { h += `<th colspan="5">${d} (Cột ${i*5+1}-${i*5+5})</th>`; });
+      h += `</tr><tr>`;
+      for (let c = 1; c <= 35; c++) h += `<th>${c}</th>`;
+      h += `</tr></thead><tbody>`;
+
+      weeks.forEach((wk, idx) => {
+        const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
+        const nextWeek = idx > 0 ? allWeeks[idx - 1] : null;
+        const nextSumsSet = new Set();
+        if (nextWeek) nextWeek.nums.forEach(num => { const s = sumLast2(num); if (s !== null) nextSumsSet.add(s); });
+        const hasNext = nextSumsSet.size > 0;
+        const sumsLabel = hasNext ? `{${Array.from(nextSumsSet).sort().join(",")}}` : "Chờ 7 ngày sau";
+
+        h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td><td><b>${sumsLabel}</b></td>`;
+        for (let d = 0; d < 7; d++) {
+          const num = wk.nums[d] || "";
+          for (let k = 0; k < 5; k++) {
+            const ch = num[k] !== undefined ? num[k] : "";
+            if (ch !== "" && hasNext) {
+              const isY = !nextSumsSet.has(parseInt(ch, 10));
+              h += `<td class="${isY ? 'bg-yellow' : ''}">${ch}</td>`;
+            } else {
+              h += `<td>${ch}</td>`;
+            }
+          }
+        }
+        h += `</tr>`;
+      });
+      document.getElementById("tbl-2").innerHTML = h + `</tbody>`;
+    }
+    loadSharedData(renderPage);
+  </script>
+</body>
+</html>
