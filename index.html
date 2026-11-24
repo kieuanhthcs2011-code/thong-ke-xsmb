@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sổ Thống Kê XSMB Tự Động</title>
+  <!-- Thư viện xuất Excel giữ nguyên màu sắc ô (SheetJS Style) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <style>
+    :root {
+      --navy: #163a5f;
+      --blue: #24527a;
+      --bg: #f3f5f8;
+      --card: #ffffff;
+      --border: #d0d7de;
+      --yellow: #fff200;
+      --yellow-text: #b80000;
+      --green: #92d050;
+      --green-text: #0f3d0f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: #1f2328;
+      font-size: 13px;
+    }
+    header {
+      background: var(--navy);
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.3px;
+    }
+    .status-badge {
+      background: rgba(255,255,255,0.15);
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 16px 0;
+      background: #e6ebf1;
+      border-bottom: 2px solid var(--blue);
+    }
+    .tab-btn {
+      border: 1px solid #b8c4d0;
+      border-bottom: none;
+      background: #dce3ec;
+      color: #1f2328;
+      padding: 8px 14px;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .tab-btn.active {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+    .toolbar {
+      padding: 10px 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 1px solid #888;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    select, input.filter-input, button.action-btn {
+      padding: 5px 10px;
+      border: 1px solid #b0b8c1;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 12px;
+    }
+    button.action-btn {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.btn-excel {
+      background: #1d6f42;
+      border-color: #1d6f42;
+    }
+    button.action-btn:hover { opacity: 0.92; }
+    .filter-bar {
+      padding: 8px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+    }
+    .panel {
+      display: none;
+      padding: 12px 16px;
+    }
+    .panel.active {
+      display: block;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      max-height: 75vh;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      white-space: nowrap;
+    }
+    th, td {
+      border: 1px solid #d8dee4;
+      padding: 5px 7px;
+      text-align: center;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--blue);
+      color: #fff;
+      z-index: 10;
+      font-weight: 600;
+    }
+    thead tr:nth-child(2) th {
+      top: 28px;
+      background: #366896;
+    }
+    tbody tr:nth-child(even) {
+      background: #f9fbfd;
+    }
+    tbody tr:hover {
+      background: #eef4fa;
+    }
+    .bg-yellow {
+      background-color: var(--yellow) !important;
+      color: var(--yellow-text) !important;
+      font-weight: 700;
+    }
+    .bg-green {
+      background-color: var(--green) !important;
+      color: var(--green-text) !important;
+      font-weight: 700;
+    }
+    .highlight-match {
+      outline: 2px solid #d97706;
+      background-color: #fef3c7 !important;
+    }
+    .week-col {
+      font-weight: 600;
+      background: #f0f4f8;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+    }
+    .de-sub {
+      display: block;
+      font-size: 11px;
+      color: #57606a;
+      font-weight: normal;
+    }
+    .manual-box {
+      display: none;
+      background: #fffbe6;
+      border: 1px solid #ffe58f;
+      padding: 10px 16px;
+      margin: 10px 16px 0;
+      border-radius: 6px;
+    }
+    .manual-box input {
+      width: 68px;
+      padding: 4px;
+      margin: 2px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 SỔ THỐNG KÊ XSMB TỰ ĐỘNG</h1>
+    <div class="status-badge" id="status-text">Đang tải dữ liệu...</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab1', this)">1. GĐB Theo Tuần (Mới trên)</button>
+    <button class="tab-btn" onclick="switchTab('tab2', this)">2. Bảng 35 Cột (Tô Vàng)</button>
+    <button class="tab-btn" onclick="switchTab('tab3', this)">3. Ghép 2 Số ĐB → G3-6 (Tô Xanh)</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="legend">
+      <span><i class="swatch" style="background:#fff"></i><b>Trắng (Bảng 35 cột):</b> Trùng Tổng 2 số cuối của 7 ngày liên tiếp sau đó</span>
+      <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (Bảng 35 cột):</b> Không trùng tập tổng 7 ngày sau</span>
+      <span><i class="swatch" style="background:var(--green)"></i><b>Xanh lá (Bảng ĐB→G3-6):</b> Ghép 2 số trùng 2 số cuối ĐB hôm sau</span>
+    </div>
+    <div class="controls">
+      <label>Hiển thị:
+        <select id="limit-select" onchange="renderAll()">
+          <option value="20" selected>20 tuần gần nhất (Siêu mượt)</option>
+          <option value="52">52 tuần (1 năm)</option>
+          <option value="999">Toàn bộ (161 tuần)</option>
+        </select>
+      </label>
+      <button class="action-btn btn-excel" onclick="exportToExcel()">📥 Xuất Excel (.xlsx)</button>
+      <button class="action-btn" onclick="toggleManual()">+ Nhập tay</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <b>🔍 Lọc / Đánh dấu nhanh:</b>
+    <label>Chạm:
+      <select id="filter-cham" onchange="renderAll()">
+        <option value="">-- Tất cả --</option>
+        <option value="0">Chạm 0</option><option value="1">Chạm 1</option>
+        <option value="2">Chạm 2</option><option value="3">Chạm 3</option>
+        <option value="4">Chạm 4</option><option value="5">Chạm 5</option>
+        <option value="6">Chạm 6</option><option value="7">Chạm 7</option>
+        <option value="8">Chạm 8</option><option value="9">Chạm 9</option>
+      </select>
+    </label>
+    <label>Tổng Đề:
+      <select id="filter-tong" onchange="renderAll()">
+        <option value="">-- Tất cả --</option>
+        <option value="0">Tổng 0</option><option value="1">Tổng 1</option>
+        <option value="2">Tổng 2</option><option value="3">Tổng 3</option>
+        <option value="4">Tổng 4</option><option value="5">Tổng 5</option>
+        <option value="6">Tổng 6</option><option value="7">Tổng 7</option>
+        <option value="8">Tổng 8</option><option value="9">Tổng 9</option>
+      </select>
+    </label>
+    <label>Tìm 2 số cuối (Đề):
+      <input type="text" id="filter-de" class="filter-input" maxlength="2" placeholder="VD: 95" style="width:65px" oninput="renderAll()" />
+    </label>
+    <button style="padding:4px 8px; cursor:pointer;" onclick="resetFilters()">Xóa lọc</button>
+  </div>
+
+  <div class="manual-box" id="manual-box">
+    <b>Nhập bổ sung kết quả ngày mới (tự lưu tạm trên trình duyệt nếu chưa tới 19h):</b><br/>
+    Ngày: <input type="text" id="m-date" placeholder="24/11/2026" style="width:95px">
+    Thứ: <select id="m-wday">
+      <option value="0">Thứ 2</option><option value="1" selected>Thứ 3</option>
+      <option value="2">Thứ 4</option><option value="3">Thứ 5</option>
+      <option value="4">Thứ 6</option><option value="5">Thứ 7</option><option value="6">CN</option>
+    </select>
+    ĐB: <input id="p0" maxlength="5" placeholder="ĐB">
+    G1: <input id="p1" maxlength="5" placeholder="G1">
+    G2-1: <input id="p2" maxlength="5"> G2-2: <input id="p3" maxlength="5">
+    G3-1: <input id="p4" maxlength="5"> G3-2: <input id="p5" maxlength="5">
+    G3-3: <input id="p6" maxlength="5"> G3-4: <input id="p7" maxlength="5">
+    G3-5: <input id="p8" maxlength="5"> G3-6: <input id="p9" maxlength="5">
+    <button class="action-btn" onclick="addManualResult()">Cập nhật ngay</button>
+  </div>
+
+  <div id="tab1" class="panel active">
+    <div class="table-wrap"><table id="tbl-1"></table></div>
+  </div>
+
+  <div id="tab2" class="panel">
+    <div class="table-wrap"><table id="tbl-2"></table></div>
+  </div>
+
+  <div id="tab3" class="panel">
+    <div class="table-wrap"><table id="tbl-3"></table></div>
+  </div>
+
+  <script>
+    let globalData = null;
+    // Lưu trữ dữ liệu đã tính toán để xuất Excel giữ nguyên màu
+    let computedExportData = { sheet1: [], sheet2: [], sheet3: [] };
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function toggleManual() {
+      const box = document.getElementById('manual-box');
+      box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function resetFilters() {
+      document.getElementById('filter-cham').value = '';
+      document.getElementById('filter-tong').value = '';
+      document.getElementById('filter-de').value = '';
+      renderAll();
+    }
+
+    function sumLast2(numStr) {
+      if (!numStr || numStr.length < 2) return null;
+      const a = parseInt(numStr[numStr.length - 2], 10);
+      const b = parseInt(numStr[numStr.length - 1], 10);
+      return (a + b) % 10;
+    }
+
+    function canForm2Digit(fiveDigits, target2) {
+      if (!fiveDigits || fiveDigits.length < 5 || !target2 || target2.length < 2) return false;
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 5; j++) {
+          if (i !== j && (fiveDigits[i] + fiveDigits[j]) === target2) return true;
+        }
+      }
+      return false;
+    }
+
+    function matchesSearchFilter(numStr) {
+      const fCham = document.getElementById('filter-cham').value;
+      const fTong = document.getElementById('filter-tong').value;
+      const fDe = document.getElementById('filter-de').value.trim();
+      if (!fCham && !fTong && !fDe) return false;
+      if (!numStr || numStr.length < 2) return false;
+      const de = numStr.slice(-2);
+      const tong = String(sumLast2(numStr));
+      if (fCham && !de.includes(fCham)) return false;
+      if (fTong && tong !== fTong) return false;
+      if (fDe && de !== fDe) return false;
+      return true;
+    }
+
+    function renderAll() {
+      if (!globalData) return;
+      const limit = parseInt(document.getElementById('limit-select').value, 10);
+      const allWeeks = globalData.weeks_gdb; // index 0 = tuần mới nhất
+      const weeks = allWeeks.slice(0, limit);
+      const daysName = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+
+      computedExportData.sheet1 = [];
+      computedExportData.sheet2 = [];
+      computedExportData.sheet3 = [];
+
+      // =========================================================================
+      // BẢNG 1: GĐB THEO TUẦN (TUẦN MỚI NHẤT PHÍA TRÊN)
+      // =========================================================================
+      let h1 = `<thead><tr><th>Tuần</th>${daysName.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>`;
+      weeks.forEach((wk, idx) => {
+        const label = idx === 0 ? "Tuần hiện tại" : `Tuần -${idx}`;
+        const exportRow = [label];
+        h1 += `<tr><td class="week-col">${label}</td>`;
+        for (let d = 0; d < 7; d++) {
+          const val = wk[d] || "";
+          if (val) {
+            const de = val.slice(-2);
+            const t = sumLast2(val);
+            const isMatch = matchesSearchFilter(val);
+            h1 += `<td class="${isMatch ? 'highlight-match' : ''}"><b>${val}</b><span class="de-sub">Đề ${de} · Tổng ${t}</span></td>`;
+            exportRow.push(`${val} (Đề ${de} - T${t})`);
+          } else {
+            h1 += `<td style="color:#aaa">—</td>`;
+            exportRow.push("");
+          }
+        }
+        h1 += `</tr>`;
+        computedExportData.sheet1.push(exportRow);
+      });
+      h1 += `</tbody>`;
+      document.getElementById("tbl-1").innerHTML = h1;
+
+      // =========================================================================
+      // BẢNG 2: 35 CỘT TỪ T2 -> CN
+      // Quy tắc 2 mới: Ô nào có chữ số BẰNG tập hợp Tổng 2 số cuối (0-9) của
+      // 7 ngày liên tiếp SAU ĐÓ (tức tuần kế tiếp: allWeeks[idx - 1]) thì ĐỂ TRẮNG,
+      // CÒN LẠI (không thuộc tập tổng 7 ngày sau) thì TÔ MÀU VÀNG (#FFF200).
+      // =========================================================================
+      let h2 = `<thead><tr><th rowspan="2">Tuần</th><th rowspan="2">Tập Tổng 7 ngày sau</th>`;
+      daysName.forEach((d, i) => {
+        h2 += `<th colspan="5">${d} (Cột ${i*5+1}-${i*5+5})</th>`;
+      });
+      h2 += `</tr><tr>`;
+      for (let c = 1; c <= 35; c++) h2 += `<th>${c}</th>`;
+      h2 += `</tr></thead><tbody>`;
+
+      weeks.forEach((wk, idx) => {
+        const label = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
+        // Lấy 7 ngày liên tiếp sau đó = tuần kế tiếp (allWeeks[idx - 1])
+        const nextWeek = idx > 0 ? allWeeks[idx - 1] : null;
+        const nextSumsSet = new Set();
+        if (nextWeek) {
+          nextWeek.forEach(num => {
+            const s = sumLast2(num);
+            if (s !== null) nextSumsSet.add(s);
+          });
+        }
+
+        const hasNextData = nextSumsSet.size > 0;
+        const sumsLabel = hasNextData
+          ? `{${Array.from(nextSumsSet).sort().join(",")}}`
+          : "Chờ 7 ngày sau";
+
+        const exportRow2 = [{ v: label, yellow: false }, { v: sumsLabel, yellow: false }];
+        h2 += `<tr><td class="week-col">${label}</td><td><b>${sumsLabel}</b></td>`;
+
+        for (let d = 0; d < 7; d++) {
+          const num = wk[d] || "";
+          for (let k = 0; k < 5; k++) {
+            const ch = num[k] !== undefined ? num[k] : "";
+            if (ch !== "" && hasNextData) {
+              const digit = parseInt(ch, 10);
+              // Trùng tổng 7 ngày sau -> để trắng; Không trùng -> tô vàng
+              const isYellow = !nextSumsSet.has(digit);
+              h2 += `<td class="${isYellow ? 'bg-yellow' : ''}">${ch}</td>`;
+              exportRow2.push({ v: digit, yellow: isYellow });
+            } else {
+              h2 += `<td>${ch}</td>`;
+              exportRow2.push({ v: ch === "" ? "" : parseInt(ch, 10), yellow: false });
+            }
+          }
+        }
+        h2 += `</tr>`;
+        computedExportData.sheet2.push(exportRow2);
+      });
+      h2 += `</tbody>`;
+      document.getElementById("tbl-2").innerHTML = h2;
+
+      // =========================================================================
+      // BẢNG 3: GHÉP 2 SỐ TỪ ĐB ĐẾN G3-6 TRÙNG 2 SỐ CUỐI ĐB HÔM SAU
+      // =========================================================================
+      const daily = globalData.daily_prizes;
+      const prizeCols = ["ĐB", "G1", "G2-1", "G2-2", "G3-1", "G3-2", "G3-3", "G3-4", "G3-5", "G3-6"];
+      let streaks = Array(10).fill(0);
+      const computedRows = [];
+
+      for (let i = 0; i < daily.length; i++) {
+        const row = daily[i];
+        if (i < daily.length - 1) {
+          const nextDb = daily[i + 1].prizes[0];
+          const nextDe = nextDb.slice(-2);
+          const cells = row.prizes.map((p, pIdx) => {
+            if (canForm2Digit(p, nextDe)) {
+              streaks[pIdx] = 0;
+              return { hit: true, html: `${p}<br>[Trúng ${nextDe}]`, plain: `${p} [Trúng ${nextDe}]` };
+            } else {
+              streaks[pIdx]++;
+              return { hit: false, html: `${p}<br>(${streaks[pIdx]})`, plain: `${p} (${streaks[pIdx]})` };
+            }
+          });
+          computedRows.push({
+            date: row.date,
+            nextHtml: `${nextDb} (<b>${nextDe}</b>)`,
+            nextPlain: `${nextDb} (${nextDe})`,
+            cells,
+            pending: false
+          });
+        } else {
+          const cells = row.prizes.map((p, pIdx) => ({
+            hit: false,
+            html: `${p}<br>(Chưa về: ${streaks[pIdx]})`,
+            plain: `${p} (Chưa về: ${streaks[pIdx]})`
+          }));
+          computedRows.push({
+            date: row.date,
+            nextHtml: `<i>Chờ KQ 19h hôm sau</i>`,
+            nextPlain: `Chờ KQ 19h hôm sau`,
+            cells,
+            pending: true
+          });
+        }
+      }
+
+      const revRows = computedRows.slice().reverse();
+      let h3 = `<thead><tr><th>Ngày</th><th>ĐB hôm sau</th>${prizeCols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>`;
+      revRows.forEach(r => {
+        const expRow3 = [{ v: r.date, green: false }, { v: r.nextPlain, green: false }];
+        h3 += `<tr><td class="week-col">${r.date}</td><td>${r.nextHtml}</td>`;
+        r.cells.forEach(c => {
+          if (c.hit) h3 += `<td class="bg-green">${c.html}</td>`;
+          else if (r.pending) h3 += `<td style="background:#f1f3f5">${c.html}</td>`;
+          else h3 += `<td>${c.html}</td>`;
+          expRow3.push({ v: c.plain, green: c.hit });
+        });
+        h3 += `</tr>`;
+        computedExportData.sheet3.push(expRow3);
+      });
+      h3 += `</tbody>`;
+      document.getElementById("tbl-3").innerHTML = h3;
+    }
+
+    // ===========================================================================
+    // XUẤT FILE EXCEL (.XLSX) GIỮ NGUYÊN MÀU VÀNG (#FFF200) VÀ XANH LÁ (#92D050)
+    // ===========================================================================
+    function exportToExcel() {
+      if (typeof XLSX === "undefined") {
+        alert("Đang tải thư viện xuất Excel, vui lòng thử lại sau 2 giây!");
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+      const borderStyle = {
+        top: { style: "thin", color: { rgb: "BFBFBF" } },
+        bottom: { style: "thin", color: { rgb: "BFBFBF" } },
+        left: { style: "thin", color: { rgb: "BFBFBF" } },
+        right: { style: "thin", color: { rgb: "BFBFBF" } }
+      };
+      const headerStyle = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "24527A" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: borderStyle
+      };
+      const baseCellStyle = {
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border: borderStyle
+      };
+      const yellowStyle = {
+        font: { bold: true, color: { rgb: "B80000" } },
+        fill: { fgColor: { rgb: "FFF200" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: borderStyle
+      };
+      const greenStyle = {
+        font: { bold: true, color: { rgb: "0F3D0F" } },
+        fill: { fgColor: { rgb: "92D050" } },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border: borderStyle
+      };
+
+      // --- Sheet 1: GĐB Theo Tuần ---
+      const s1Headers = ["Tuần", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+      const ws1Data = [
+        s1Headers.map(h => ({ v: h, s: headerStyle })),
+        ...computedExportData.sheet1.map(row => row.map(val => ({ v: val, s: baseCellStyle })))
+      ];
+      const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
+      ws1["!cols"] = [{ wch: 16 }, ...Array(7).fill({ wch: 20 })];
+      XLSX.utils.book_append_sheet(wb, ws1, "1. GDB Theo Tuan");
+
+      // --- Sheet 2: Bảng 35 Cột (Tô Vàng) ---
+      const s2Headers = ["Tuần", "Tập Tổng 7 ngày sau", ...Array.from({ length: 35 }, (_, i) => `Cột ${i + 1}`)];
+      const ws2Data = [
+        s2Headers.map(h => ({ v: h, s: headerStyle })),
+        ...computedExportData.sheet2.map(row =>
+          row.map(cell => ({
+            v: cell.v,
+            s: cell.yellow ? yellowStyle : baseCellStyle
+          }))
+        )
+      ];
+      const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
+      ws2["!cols"] = [{ wch: 14 }, { wch: 20 }, ...Array(35).fill({ wch: 6 })];
+      XLSX.utils.book_append_sheet(wb, ws2, "2. Bang 35 Cot");
+
+      // --- Sheet 3: Ghép 2 Số ĐB -> G3-6 (Tô Xanh Lá) ---
+      const s3Headers = ["Ngày", "ĐB hôm sau", "ĐB", "G1", "G2-1", "G2-2", "G3-1", "G3-2", "G3-3", "G3-4", "G3-5", "G3-6"];
+      const ws3Data = [
+        s3Headers.map(h => ({ v: h, s: headerStyle })),
+        ...computedExportData.sheet3.map(row =>
+          row.map(cell => ({
+            v: cell.v,
+            s: cell.green ? greenStyle : baseCellStyle
+          }))
+        )
+      ];
+      const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
+      ws3["!cols"] = [{ wch: 13 }, { wch: 18 }, ...Array(10).fill({ wch: 16 })];
+      XLSX.utils.book_append_sheet(wb, ws3, "3. Ghep 2 So DB-G3.6");
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `Thong_Ke_XSMB_${todayStr}.xlsx`);
+    }
+
+    function addManualResult() {
+      const dateStr = document.getElementById('m-date').value.trim();
+      const wday = parseInt(document.getElementById('m-wday').value, 10);
+      const prizes = [];
+      for (let i = 0; i < 10; i++) {
+        const v = document.getElementById('p' + i).value.trim();
+        if (v.length !== 5 || isNaN(v)) {
+          alert("Vui lòng nhập đủ 10 giải (mỗi giải 5 chữ số)!");
+          return;
+        }
+        prizes.push(v);
+      }
+      if (!dateStr) { alert("Vui lòng nhập ngày!"); return; }
+      globalData.daily_prizes.push({ date: dateStr, prizes });
+      if (wday === 0 && globalData.weeks_gdb[0][0] !== "") {
+        const nw = [prizes[0], "", "", "", "", "", ""];
+        globalData.weeks_gdb.unshift(nw);
+      } else {
+        globalData.weeks_gdb[0][wday] = prizes[0];
+      }
+      localStorage.setItem("xsmb_local_backup", JSON.stringify(globalData));
+      renderAll();
+      alert("Đã cập nhật vào bảng!");
+    }
+
+    async function init() {
+      try {
+        const res = await fetch('data.json?t=' + Date.now());
+        globalData = await res.json();
+        document.getElementById('status-text').innerText = "Cập nhật tự động: " + globalData.last_updated;
+        renderAll();
+      } catch (e) {
+        document.getElementById('status-text').innerText = "Lỗi tải data.json";
+      }
+    }
+    init();
+  </script>
+</body>
+</html>
