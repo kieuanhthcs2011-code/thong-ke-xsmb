@@ -95,19 +95,19 @@
           <th class="th-gdb">T7 (AL)</th>
           <th class="th-gdb">CN (AM)</th>
           <th class="th-tong-grp">tong(D+E)T2<br><small>(AA · sau T2)</small></th>
-          <th class="th-tong-grp">tổng(C+D)T5<br><small>(AC · sau T5)</small></th>
-          <th class="th-tong-grp">tong(d+e)T5<br><small>(AD · sau T5)</small></th>
-          <th class="th-tong-grp">Tổng(eT7+aCN)<br><small>(AE · sau CN)</small></th>
-          <th class="th-tong-grp">tong(a+b G1CN)<br><small>(AO · sau CN)</small></th>
           <th class="th-tong-grp">tổng C(T3)<br><small>(AP · sau T3)</small></th>
           <th class="th-tong-grp">tong(b+c)T3<br><small>(AQ · sau T3)</small></th>
           <th class="th-tong-grp">tong(c+d)T3<br><small>(AR · sau T3)</small></th>
-          <th class="th-tong-grp">tong(C&D)T6<br><small>(AT · sau T6)</small></th>
+          <th class="th-tong-grp">tổng(C+D)T5<br><small>(AC · sau T5)</small></th>
+          <th class="th-tong-grp">tong(d+e)T5<br><small>(AD · sau T5)</small></th>
           <th class="th-tong-grp">tong c T5<br><small>(AY · sau T5)</small></th>
+          <th class="th-tong-grp">tong(C&D)T6<br><small>(AT · sau T6)</small></th>
+          <th class="th-tong-grp">Tổng(eT7+aCN)<br><small>(AE · sau CN)</small></th>
+          <th class="th-tong-grp">tong(a+b G1CN)<br><small>(AO · sau CN)</small></th>
           <th class="th-cham-grp">cham eT3+aT4<br><small>(AF · sau T4)</small></th>
-          <th class="th-cham-grp">chạm(a+b G1CN)<br><small>(AN · sau CN)</small></th>
           <th class="th-cham-grp">Cham C T5<br><small>(AZ · sau T5)</small></th>
           <th class="th-cham-grp">chạm(a+b)T5<br><small>(BA · sau T5)</small></th>
+          <th class="th-cham-grp">chạm(a+b G1CN)<br><small>(AN · sau CN)</small></th>
         </tr>
       </thead><tbody>`;
 
@@ -172,20 +172,20 @@
           <td class="td-gdb">${fmtGdbGrayDe(r.AM)}</td>
           <td class="td-ref-tong" title="${refTip}">${sumRefLabel}</td>
           ${renderTongCell(r.AA, 0)}
-          ${renderTongCell(r.AC, 3)}
-          ${renderTongCell(r.AD, 3)}
-          ${renderTongCell(r.AE, 6)}
-          ${renderTongCell(r.AO, 6)}
           ${renderTongCell(r.AP, 1)}
           ${renderTongCell(r.AQ, 1)}
           ${renderTongCell(r.AR, 1)}
-          ${renderTongCell(r.AT, 4)}
+          ${renderTongCell(r.AC, 3)}
+          ${renderTongCell(r.AD, 3)}
           ${renderTongCell(r.AY, 3)}
+          ${renderTongCell(r.AT, 4)}
+          ${renderTongCell(r.AE, 6)}
+          ${renderTongCell(r.AO, 6)}
           <td class="td-ref-cham" title="${refTip}">${chamRefLabel}</td>
           ${renderChamCell(r.AF, 2)}
-          ${renderChamCell(r.AN, 6)}
           ${renderChamCell(r.AZ, 3)}
           ${renderChamCell(r.BA, 3)}
+          ${renderChamCell(r.AN, 6)}
           <td>${r.AB}</td>
           <td><span class="de-gray-pill">${r.AS}</span></td>
           <td class="td-bo"><span class="de-gray-pill">${r.AU}</span></td>
