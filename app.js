@@ -450,6 +450,7 @@ function analyzeDanCyclesInRange(histGDB, nums, fromDateISO, toDateISO) {
   let streakStartDate = filtered.length ? filtered[0].date : "";
   let seenFirstHit = false;
   let maxClosed = 0;
+  let maxInclHit = 0;
   let maxSpan = "Chưa đủ 2 lần về";
   let lastHitDate = "Chưa thấy";
   let lastHitDe = "--";
@@ -461,14 +462,17 @@ function analyzeDanCyclesInRange(histGDB, nums, fromDateISO, toDateISO) {
     const item = filtered[i];
     if (targetSet.has(item.de)) {
       if (seenFirstHit) {
+        const inclDays = curStreak + 1;
         closedCycles.push({
-          days: curStreak,
+          days: inclDays,
+          gapDays: curStreak,
           from: streakStartDate,
           to: item.date,
           de: item.de
         });
-        if (curStreak >= maxClosed) {
-          maxClosed = curStreak;
+        if (curStreak > maxClosed) maxClosed = curStreak;
+        if (inclDays >= maxInclHit) {
+          maxInclHit = inclDays;
           maxSpan = `${streakStartDate} → ${item.date} (về ${item.de})`;
         }
       }
@@ -491,6 +495,7 @@ function analyzeDanCyclesInRange(histGDB, nums, fromDateISO, toDateISO) {
     toDate: filtered.length ? filtered[filtered.length - 1].date : "",
     daysSince: curStreak,
     maxClosed,
+    maxInclHit,
     maxSpan,
     lastHitDate,
     lastHitDe,

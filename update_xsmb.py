@@ -408,6 +408,12 @@ def main():
     for it in rss_items:
         aux[it["date"]] = {"g1": it["parsed"]["g1"], "g7": it["parsed"]["g7"]}
     backfill_daily_aux(data, weeks, budget=int(os.environ.get("XSMB_AUX_BUDGET", "60")))
+    hist_pairs = fetch_history_from_env()
+    if hist_pairs:
+        n_hist = ingest_historical_gdb_pairs(data, hist_pairs)
+        if n_hist:
+            weeks = data.get("weeks_gdb") or []
+            print(f"Đã nạp thêm {n_hist} ngày lịch sử GĐB (tổng {len(weeks)} tuần).")
     derive_aux_maps(data, weeks)
 
     if rss_items:
