@@ -82,15 +82,22 @@
             ? `${daysName[d]} ${formatShortDate(dayDt)} (${num || '—'}) → 7 ngày sau [${next7.daysDetail.join(', ')}] | Tập tổng: {${Array.from(next7.sumsSet).sort().join(',')}}`
             : `${daysName[d]} ${formatShortDate(dayDt)}: Chờ kết quả 7 ngày tiếp theo`;
 
+          const deTongVal = (num && num.length >= 5)
+            ? ((parseInt(num[3], 10) + parseInt(num[4], 10)) % 10)
+            : null;
+          const cornerBadge = deTongVal !== null ? `<span class="cell-sum-corner" title="Tổng 2 số cuối Đề ngày ${formatShortDate(dayDt)}: Tổng ${deTongVal}">T${deTongVal}</span>` : "";
+
           for (let k = 0; k < 5; k++) {
             const ch = num[k] !== undefined ? num[k] : "";
             const deCls = (k === 3 || k === 4) ? "bg-de-gray" : "";
+            const cornerCls = (ch !== "" && cornerBadge) ? "has-corner-sum" : "";
             if (ch !== "" && next7.hasFull7) {
               const isY = !next7.sumsSet.has(parseInt(ch, 10));
-              const cls = [deCls, isY ? "bg-yellow" : ""].filter(Boolean).join(" ");
-              h += `<td class="${cls}" title="${tip}">${ch}</td>`;
+              const cls = [deCls, isY ? "bg-yellow" : "", cornerCls].filter(Boolean).join(" ");
+              h += `<td class="${cls}" title="${tip}">${ch}${cornerBadge}</td>`;
             } else {
-              h += `<td class="${deCls}" title="${tip}">${ch}</td>`;
+              const cls = [deCls, cornerCls].filter(Boolean).join(" ");
+              h += `<td class="${cls}" title="${tip}">${ch}${cornerBadge}</td>`;
             }
           }
         }
