@@ -177,19 +177,24 @@
 
         // Tính riêng D+1..D+7 cho từng ngày T2 (0) -> CN (6)
         const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(allWeeks, idx, dI));
-        const d0 = dStats[0];
-        const nextChamSetD0 = new Set(Array.from(d0.chamSet).map(String));
-        const chamRefLabel = d0.hasFull7
-          ? `{${Array.from(d0.chamSet).sort().join(",")}}`
-          : `Đang ${d0.count}/7N`;
+        const d6 = dStats[6];
+        const chamRefLabel = d6.hasFull7
+          ? `{${Array.from(d6.chamSet).sort().join(",")}}`
+          : `Đang ${d6.count}/7N`;
 
-        const renderBridgeCell = (val, isBold = false) => {
+        const renderBridgeCell = (val, dIdx, isBold = false) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           if (s === "") return `<td></td>`;
-          if (!d0.hasFull7) return `<td>${isBold ? `<b>${s}</b>` : s}</td>`;
-          const hit = nextChamSetD0.has(s);
+          const st = dStats[dIdx];
+          const chamSetStr = new Set(Array.from(st.chamSet).map(String));
+          const labelSet = `{${Array.from(st.chamSet).sort().join(",")}}`;
+          const tip = st.daysDetail.length
+            ? `7 ngày tiếp theo (D+1..D+7): ${st.daysDetail.join(", ")} | Tập chạm: ${labelSet}`
+            : `Chờ đủ 7 ngày tiếp theo (D+1..D+7)`;
+          if (!st.hasFull7) return `<td title="${tip}">${isBold ? `<b>${s}</b>` : s}</td>`;
+          const hit = chamSetStr.has(s);
           const cls = hit ? "" : "bg-yellow";
-          return `<td class="${cls}">${isBold ? `<b>${s}</b>` : s}</td>`;
+          return `<td class="${cls}" title="${tip}">${isBold ? `<b>${s}</b>` : s}</td>`;
         };
 
         const renderPascalSumCell = (val, dIdx, mode) => {
@@ -215,15 +220,15 @@
 
         if (showTach) {
           const valsTach = [
-            r.A, r.B, r.C, r.D, r.E, r.F, r.G,
-            r.H, r.I, r.J, r.K,
-            r.L, r.M, r.N, r.O,
-            r.P, r.Q, r.R, r.S,
-            r.T, r.U, r.V, r.W,
-            r.X, r.Y, r.Z, r.AA,
-            r.AB, r.AC, r.AD, r.AE
+            [r.A, 0], [r.B, 0], [r.C, 0], [r.D, 0], [r.E, 0], [r.F, 0], [r.G, 0],
+            [r.H, 1], [r.I, 1], [r.J, 1], [r.K, 1],
+            [r.L, 2], [r.M, 2], [r.N, 2], [r.O, 2],
+            [r.P, 3], [r.Q, 3], [r.R, 3], [r.S, 3],
+            [r.T, 4], [r.U, 4], [r.V, 4], [r.W, 4],
+            [r.X, 5], [r.Y, 5], [r.Z, 5], [r.AA, 5],
+            [r.AB, 6], [r.AC, 6], [r.AD, 6], [r.AE, 6]
           ];
-          h += valsTach.map(v => renderBridgeCell(v, false)).join("");
+          h += valsTach.map(([v, dI]) => renderBridgeCell(v, dI, false)).join("");
         }
 
         h += [r.AF, r.AG, r.AH, r.AI, r.AJ, r.AK, r.AL]
@@ -231,8 +236,11 @@
 
         if (showCham) {
           h += `<td class="td-cham-ref">${chamRefLabel}</td>`;
-          const valsCham = [r.AM, r.AN, r.AO, r.AP, r.AQ, r.AR, r.AS, r.AT, r.AU, r.AV];
-          h += valsCham.map(v => renderBridgeCell(v, true)).join("");
+          const valsCham = [
+            [r.AM, 2], [r.AN, 5], [r.AO, 6], [r.AP, 3], [r.AQ, 4],
+            [r.AR, 5], [r.AS, 6], [r.AT, 6], [r.AU, 6], [r.AV, 6]
+          ];
+          h += valsCham.map(([v, dI]) => renderBridgeCell(v, dI, true)).join("");
         }
 
         if (showPascal) {
