@@ -309,7 +309,6 @@ table.stat-table tbody tr:hover { background: #eef4fa; }
 /* Nhãn số tổng ở góc phải phía trên của ô để tiện đối chiếu */
 td.has-corner-sum {
   position: relative;
-  padding-top: 11px !important;
 }
 .cell-sum-corner {
   position: absolute;
@@ -318,10 +317,9 @@ td.has-corner-sum {
   font-size: 9px;
   line-height: 1;
   font-weight: 800;
-  color: #1e3a8a;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #bfdbfe;
-  border-radius: 3px;
-  padding: 1px 3px;
+  color: #dc2626;
+  background: transparent;
+  border: none;
+  padding: 0;
   pointer-events: none;
 }
