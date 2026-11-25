@@ -299,7 +299,7 @@
         <th>Các số trong dàn</th>
         <th>Số con</th>
         <th>Gan (ngày chưa về)</th>
-        <th>Max thực tế</th>
+        <th>Số ngày gan nhất</th>
         <th>% Max</th>
         <th>Về gần nhất</th>
         <th>Trạng thái</th>
@@ -308,7 +308,7 @@
         const lv = DAN_LEVEL[d.level];
         const pct = d.realMax > 0 ? Math.round(d.gan / d.realMax * 100) : 0;
         const statusTxt = d.over > 0 ? `Vượt Max (+${d.over}ng)!` : lv.text;
-        const refNote = d.ref && d.ref !== d.realMax ? `<span class="de-sub">(Chuẩn: ${d.ref}ng)</span>` : "";
+        const refNote = d.maxSpan ? `<span class="de-sub">${d.maxSpan}</span>` : (d.ref ? `<span class="de-sub">(Chuẩn: ${d.ref}ng)</span>` : "");
         h += `<tr class="${lv.cls}">
           <td>${i + 1}</td>
           <td style="text-align:left;">

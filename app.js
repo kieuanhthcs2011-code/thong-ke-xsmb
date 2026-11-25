@@ -253,6 +253,7 @@ function getAllHistoricalGDB(allWeeks) {
 function computeDanStats(histGDB, targetSet) {
   // histGDB: chỉ gồm các ngày CÓ kết quả (ngày trống không được đếm), thứ tự cũ -> mới.
   let curStreak = 0, maxClosedStreak = 0, seenFirstHit = false;
+  let streakStartDate = "", maxSpan = "";
   let lastHitDate = "Chưa thấy", lastHitDe = "--", hits = 0;
   for (let i = 0; i < histGDB.length; i++) {
     const item = histGDB[i];
@@ -260,9 +261,13 @@ function computeDanStats(histGDB, targetSet) {
     if (targetSet.has(item.de)) {
       // Max thực tế = chu kỳ ĐÃ VỀ (mốc về trước -> lần về sau). Đoạn gan đầu lịch sử (chưa có mốc mở)
       // và chuỗi gan hiện tại (chưa về) KHÔNG được tính.
-      if (seenFirstHit && curStreak > maxClosedStreak) maxClosedStreak = curStreak;
+      if (seenFirstHit && curStreak >= maxClosedStreak) {
+        maxClosedStreak = curStreak;
+        maxSpan = `${streakStartDate} → ${item.date} (về ${item.de})`;
+      }
       seenFirstHit = true;
       curStreak = 0;
+      streakStartDate = item.date;
       lastHitDate = item.date;
       lastHitDe = item.de;
       hits++;
@@ -270,7 +275,7 @@ function computeDanStats(histGDB, targetSet) {
       curStreak++;
     }
   }
-  return { daysSince: curStreak, lastHitDate, lastHitDe, maxObserved: maxClosedStreak, hits };
+  return { daysSince: curStreak, lastHitDate, lastHitDe, maxObserved: maxClosedStreak, maxSpan, hits };
 }
 
 /* Đánh giá 1 dàn: Max hiệu lực = max(Max chuẩn/tham chiếu, Max thực tế của các chu kỳ đã về).
@@ -680,7 +685,7 @@ function exportFullWorkbook() {
   // Sheet Dàn nuôi (Max hiệu lực = max(Max chuẩn, Max thực tế các chu kỳ đã về))
   const redStyle = { font: { bold: true, color: { rgb: "B80000" } }, fill: { fgColor: { rgb: "FFE2E2" } }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: borderStyle };
   const histGDB = getAllHistoricalGDB(allWeeks);
-  const s4Rows = [ ["Tên Dàn Nuôi", "Số con", "Gan (ngày chưa về)", "Max hiệu lực", "Max chuẩn", "Max thực tế", "Về gần nhất", "Trạng thái"].map(h => ({ v: h, s: headerStyle })) ];
+  const s4Rows = [ ["Tên Dàn Nuôi", "Số con", "Gan (ngày chưa về)", "Số ngày gan nhất", "Max chuẩn", "Khoảng gan nhất", "Về gần nhất", "Trạng thái"].map(h => ({ v: h, s: headerStyle })) ];
   getDanConfigs().forEach(cfg => {
     const ev = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
     const style = ev.level === "hit" ? greenStyle : (ev.level === "max" ? redStyle : (ev.level === "watch" ? yellowStyle : baseCellStyle));
@@ -690,7 +695,7 @@ function exportFullWorkbook() {
       { v: ev.gan, s: style },
       { v: ev.effMax, s: style },
       { v: ev.ref, s: style },
-      { v: ev.maxObserved, s: style },
+      { v: ev.maxSpan || "—", s: style },
       { v: `${ev.lastHitDate} (${ev.lastHitDe})`, s: style },
       { v: DAN_LEVEL[ev.level].text, s: style }
     ]);

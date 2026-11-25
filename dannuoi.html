@@ -414,7 +414,7 @@
           <td><b>${cfg.count}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td><b>${st.daysSince} ngày</b></td>
-          <td style="font-size:14px;"><b>${maxGanNhatVal} ngày</b> <span class="de-sub">(thực tế ${st.maxObserved} · chuẩn ${st.ref})</span></td>
+          <td style="font-size:14px;"><b>${maxGanNhatVal} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
           <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved}${st.over ? ' · đang vượt +' + st.over : ''})</span></td>
           <td>${badge}</td>
         </tr>`;
@@ -466,7 +466,7 @@
       // 3. Bảng Max | Dàn (C1,T1 -> C9,T9) | Chưa Ra (Đúng thứ tự ảnh mới gửi + tự động cập nhật)
       const ctConfigs = getChamTongConfigs();
       let hCt = `<thead><tr>
-        <th>Max</th>
+        <th>Số ngày gan nhất</th>
         <th>Dàn (Bấm xem số)</th>
         <th>Số con</th>
         <th>Ngày về gần nhất</th>
@@ -490,7 +490,7 @@
           gBadge = `<span class="gan-inline-badge is-warn">gan ${st.daysSince} ngày</span>`;
         }
         hCt += `<tr class="${cls}">
-          <td style="font-size:14px;"><b>${st.effMax}</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved})</span></td>
+          <td style="font-size:14px;"><b>${st.realMax} ngày</b> <span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
           <td style="text-align:left;">
             <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
               ${item.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
@@ -520,11 +520,12 @@
           const dups = findDuplicateDans(item.nums, others);
           const dupHtml = dups.length ? `<span style="color:#b91c1c; font-weight:700;">⚠ Trùng: ${dups.join("; ")}</span>` : `<span style="color:#15803d;">Riêng biệt</span>`;
           const st = computeDanStats(histGDB, new Set(item.nums));
-          const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= item.maxDays ? "bg-red-alert" : "");
+          const autoMax = st.maxObserved > 0 ? st.maxObserved : (item.maxDays || 7);
+          const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= autoMax ? "bg-red-alert" : "");
           const gBadge = st.daysSince === 0
             ? `<span class="gan-inline-badge is-zero">vừa về</span>`
             : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
-          hCus += `<tr class="${cls}"><td style="text-align:left;"><b>${item.name}</b> — ${gBadge}</td><td class="dan-nums-cell">${item.nums.join(", ")}</td><td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td><td><b>${st.daysSince} ngày</b></td><td>${item.maxDays} ngày</td><td style="text-align:left; font-size:11px;">${dupHtml}</td><td><button onclick="removeCustomDan(${idx})" style="cursor:pointer; color:red; border:none; background:none; font-weight:bold;">✕</button></td></tr>`;
+          hCus += `<tr class="${cls}"><td style="text-align:left;"><b>${item.name}</b> — ${gBadge}</td><td class="dan-nums-cell">${item.nums.join(", ")}</td><td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td><td><b>${st.daysSince} ngày</b></td><td><b>${autoMax} ngày</b><span class="de-sub">${st.maxSpan || ""}</span></td><td style="text-align:left; font-size:11px;">${dupHtml}</td><td><button onclick="removeCustomDan(${idx})" style="cursor:pointer; color:red; border:none; background:none; font-weight:bold;">✕</button></td></tr>`;
         });
         document.getElementById("tbl-custom-dan").innerHTML = hCus + `</tbody>`;
       }
@@ -560,7 +561,7 @@
         <th>Số con</th>
         <th>Ngày về gần nhất</th>
         <th>Gan (ngày chưa về)</th>
-        <th>Max thực tế</th>
+        <th>Số ngày gan nhất</th>
         <th>Trạng thái</th>
       </tr></thead><tbody>`;
 
@@ -583,7 +584,7 @@
           <td><b>${cfg.nums.length}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${st.realMax}ng</b> <span class="de-sub">(Chuẩn: ${st.ref}ng)</span></td>
+          <td><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
           <td><span class="badge-status ${lv.badge}">${statusTxt}</span></td>
         </tr>`;
       });
@@ -597,7 +598,7 @@
         <th>4 Số Trong Bộ</th>
         <th>Ngày về gần nhất</th>
         <th>Số ngày chưa về</th>
-        <th>Max (chuẩn · thực tế)</th>
+        <th>Số ngày gan nhất</th>
       </tr></thead><tbody>`;
       bkList.forEach((cfg, idx) => {
         const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
@@ -611,7 +612,7 @@
           <td><b>${cfg.nums.join(", ")}</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved})</span></td>
+          <td><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
         </tr>`;
       });
       const bkTbl = document.getElementById("tbl-bo-kep-4s");
