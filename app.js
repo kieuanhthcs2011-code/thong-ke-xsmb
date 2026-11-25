@@ -279,17 +279,27 @@ const WATCH_RATIO = 0.72;
 function evaluateDan(histGDB, nums, referenceMax) {
   const st = computeDanStats(histGDB, new Set(nums));
   const ref = Number(referenceMax) || 0;
-  const effMax = Math.max(ref, st.maxObserved);
+  // Tính Max thực tế từ lịch sử các chu kỳ đã về; nếu chưa đủ chu kỳ đóng thì lấy Max chuẩn tham chiếu
+  const realMax = st.maxObserved > 0 ? st.maxObserved : ref;
+  const effMax = realMax;
   const gan = st.daysSince;
   let level = "normal";
   if (gan === 0) level = "hit";
-  else if (effMax > 0 && gan >= effMax) level = "max";
-  else if (effMax > 0 && gan >= Math.floor(effMax * WATCH_RATIO)) level = "watch";
-  return { ...st, gan, ref, effMax, level, over: effMax > 0 ? Math.max(0, gan - effMax) : 0 };
+  else if (realMax > 0 && gan >= realMax) level = "max";
+  else if (realMax > 0 && gan >= Math.floor(realMax * WATCH_RATIO)) level = "watch";
+  return {
+    ...st,
+    gan,
+    ref,
+    realMax,
+    effMax,
+    level,
+    over: realMax > 0 ? Math.max(0, gan - realMax) : 0
+  };
 }
 const DAN_LEVEL = {
   hit:    { cls: "bg-green",     badge: "st-hit",    text: "Vừa về" },
-  max:    { cls: "bg-red-alert", badge: "st-max",    text: "Chạm/Vượt Max!" },
+  max:    { cls: "bg-red-alert", badge: "st-max",    text: "Vượt/Chạm Max!" },
   watch:  { cls: "bg-yellow",    badge: "st-watch",  text: "Sắp chạm Max" },
   normal: { cls: "",             badge: "st-normal", text: "Đang theo dõi" }
 };
@@ -411,19 +421,74 @@ function findDuplicateDans(nums, extraLists) {
 
 
 /* Gộp MỌI dàn (31 dàn nhóm 1-2, 10 Chạm–Tổng, 5 bộ kép, dàn BR–BT/ảnh) để theo dõi gan; bỏ dàn trùng tập số. */
+
+function renderDanNumsPreview(nums, maxInline = 10) {
+  if (!Array.isArray(nums) || !nums.length) return "—";
+  const allStr = nums.join(", ");
+  if (nums.length <= maxInline) {
+    return `<span style="font-weight:600; color:#1e293b;">${allStr}</span>`;
+  }
+  const shortStr = nums.slice(0, maxInline).join(", ");
+  return `<div class="dan-nums-wrap" style="text-align:left; white-space:normal; max-width:300px; line-height:1.4;">
+    <span class="dan-short" style="font-weight:600; color:#1e293b;">${shortStr}, … </span>
+    <span class="dan-full" style="display:none; font-weight:600; color:#1e293b;">${allStr} </span>
+    <button type="button" onclick="const w=this.parentElement; const s=w.querySelector('.dan-short'); const f=w.querySelector('.dan-full'); const open=f.style.display==='none'; s.style.display=open?'none':'inline'; f.style.display=open?'inline':'none'; this.textContent=open?'[Thu gọn ▴]':'[Xem đủ '+${nums.length}+' số ▾]';" style="border:1px solid #9cbce2; background:#eef5fd; color:#0969da; border-radius:4px; padding:1px 6px; font-size:11px; font-weight:700; cursor:pointer; margin-left:2px;">[Xem đủ ${nums.length} số ▾]</button>
+  </div>`;
+}
+
 function getAllDanForMonitor() {
   const sig = n => Array.from(new Set(n)).sort().join(",");
   const seen = new Set(), out = [];
-  const add = (group, c) => {
-    const k = sig(c.nums);
+  const add = (code, group, name, nums, ref) => {
+    const k = sig(nums);
     if (seen.has(k)) return;
     seen.add(k);
-    out.push({ group, name: c.name, nums: c.nums, ref: c.excelMax });
+    out.push({ code, group, name, nums, ref });
   };
-  getChamTongConfigs().forEach(c => add("Chạm–Tổng", c));
-  getDanConfigs().forEach(c => add(c.group, c));
-  getBoKep4SoConfigs().forEach(c => add("Bộ kép 4 số", c));
-  getImageF3F9A1Configs().forEach(c => add(c.subGroup, c));
+
+  // 1. 5 Bộ Kép 4 số (ký hiệu BK-00 .. BK-44)
+  getBoKep4SoConfigs().forEach(c => {
+    const numId = (c.name.match(/\d{2}/) || ["00"])[0];
+    add(`BK-${numId}`, "Bộ kép 4 số", c.name, c.nums, c.excelMax);
+  });
+
+  // 2. 10 Dàn Chạm–Tổng (ký hiệu CT-0 .. CT-9)
+  getChamTongConfigs().forEach(c => {
+    const dId = (c.name.match(/\d/) || ["0"])[0];
+    add(`CT-${dId}`, "Chạm–Tổng", `Chạm–Tổng ${dId} (${c.name.replace(/\s+/g, '')})`, c.nums, c.excelMax);
+  });
+
+  // 3. 31 Dàn tiêu chuẩn (9 Dàn trong ảnh DA-01..DA-09 + 22 Dàn Cột T T3..T44)
+  let daIdx = 1;
+  getDanConfigs().forEach(c => {
+    if (c.group === "Dàn trong ảnh") {
+      const code = `DA-${String(daIdx++).padStart(2, "0")}`;
+      add(code, c.group, c.name, c.nums, c.excelMax);
+    } else {
+      const m = c.name.match(/Cột\s*(T\d+)[:\s]*(.*)/i);
+      const code = m ? m[1].toUpperCase() : `CT-${daIdx++}`;
+      const cleanName = m && m[2] ? m[2].replace(/\(Chú thích\)/gi, "").trim() : c.name;
+      add(code, c.group, cleanName, c.nums, c.excelMax);
+    }
+  });
+
+  // 4. Các dàn bổ sung không trùng (Chạm 0-9, Tổng 0-9, Bộ 8 số, Khối màu, BR-BT)
+  let kmIdx = 1;
+  getImageF3F9A1Configs().forEach(c => {
+    let code = "";
+    if (c.name.startsWith("Chạm ")) code = `CH-${c.name.replace("Chạm ", "").trim()}`;
+    else if (c.name.startsWith("Tổng ")) code = `TG-${c.name.replace("Tổng ", "").trim()}`;
+    else if (c.name.startsWith("Bộ ")) code = `BO-${c.name.replace("Bộ ", "").replace("(4s)", "").trim()}`;
+    else if (c.name.startsWith("Dàn BR-")) {
+      const m = c.name.match(/BR-(\d+)/);
+      code = m ? `BR-${m[1].padStart(2, "0")}` : `BR-${kmIdx++}`;
+    } else {
+      code = `KM-${String(kmIdx++).padStart(2, "0")}`;
+    }
+    const cleanName = c.name.replace(/\s*-\s*Ảnh/gi, "").trim();
+    add(code, c.subGroup, cleanName, c.nums, c.excelMax);
+  });
+
   return out;
 }
 
@@ -855,15 +920,20 @@ function getImageF3F9A1Configs() {
     ].map(x => ({ subGroup: "Nhóm Dàn BR-BT (Ảnh)", name: x.n, excelMax: x.mx, nums: x.nums }))
   ];
 
-  // Detect duplicate sets (dàn có cùng tập hợp số hoặc trùng hoàn toàn với dàn khác)
-  const seenSignatures = new Map();
+  // Tự động loại bỏ toàn bộ các dàn trùng tập số với các bảng chính (Cột T, Chạm-Tổng, Bộ Kép 4 số) hoặc trùng nội bộ
+  const sigOf = arr => Array.from(new Set(arr)).sort().join(",");
+  const globalSeen = new Set();
+  getDanConfigs().forEach(c => globalSeen.add(sigOf(c.nums)));
+  getChamTongConfigs().forEach(c => globalSeen.add(sigOf(c.nums)));
+  getBoKep4SoConfigs().forEach(c => globalSeen.add(sigOf(c.nums)));
+
+  const uniqueItems = [];
   items.forEach(it => {
-    const sig = Array.from(new Set(it.nums)).sort().join(",");
-    if (seenSignatures.has(sig)) {
-      it.dupOf = seenSignatures.get(sig);
-    } else {
-      seenSignatures.set(sig, it.name);
+    const s = sigOf(it.nums);
+    if (!globalSeen.has(s)) {
+      globalSeen.add(s);
+      uniqueItems.push(it);
     }
   });
-  return items;
+  return uniqueItems;
 }

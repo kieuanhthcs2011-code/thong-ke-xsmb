@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trang 4: Dàn Nuôi Cột R-S-T & Dàn Trong Ảnh - Thongke.web.app</title>
+  <title>Trang 2: Dàn Nuôi & Chu Kỳ (Không Dàn Trùng) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
@@ -174,16 +174,15 @@
       </div>
     </div>
 
-    <!-- BẢNG 6: THỐNG KÊ CÁC DÀN TRONG ẢNH MỚI (BC -> BT) & TỰ ĐỘNG BÁO DÀN TRÙNG NHAU -->
+    <!-- BẢNG 6: THỐNG KÊ CÁC DÀN BỔ SUNG (ĐÃ TỰ ĐỘNG LOẠI BỎ HOÀN TOÀN DÀN TRÙNG) -->
     <div class="card-panel" style="margin-top:14px;">
       <div class="card-header">
-        <span>6. THỐNG KÊ CÁC DÀN TRONG ẢNH MỚI (CHẠM, TỔNG, BỘ, KÉP, KHỐI MÀU & DÀN BR-BT) — TỰ ĐỘNG BÁO DÀN TRÙNG</span>
-        <span style="font-size:11px; font-weight:normal;" id="dup-summary-badge">Đang kiểm tra trùng dàn...</span>
+        <span>6. THỐNG KÊ CÁC DÀN BỔ SUNG (CHẠM 0–9, TỔNG 0–9, BỘ 8 SỐ, KHỐI MÀU & DÀN BR–BT)</span>
+        <span style="font-size:11px; font-weight:normal;" id="dup-summary-badge">✓ Đã loại bỏ hoàn toàn dàn trùng</span>
       </div>
       <div style="padding:8px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12px;">
-        <button class="sub-btn active" onclick="filterF3F9('all', this)">Tất cả dàn ảnh mới</button>
-        <button class="sub-btn" onclick="filterF3F9('dup', this)" style="border-color:#dc2626; color:#991b1b; background:#fee2e2;">⚠️ Chỉ hiện dàn trùng nhau (Có thể bỏ qua)</button>
-        <button class="sub-btn" onclick="filterF3F9('unique', this)">✓ Chỉ hiện dàn không trùng</button>
+        <button class="sub-btn active" onclick="filterF3F9('all', this)">Tất cả dàn bổ sung (Không trùng)</button>
+        <button class="sub-btn" onclick="filterF3F9('gan_watch', this)" style="border-color:#d97706; color:#92400e; background:#fef3c7;">🔥 Chỉ hiện dàn sắp chạm / vượt Max thực tế</button>
       </div>
       <div style="overflow-x:auto; max-height:70vh;">
         <table class="stat-table" id="tbl-f3f9-dans"></table>
@@ -477,63 +476,53 @@
       const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
       const histGDB = getAllHistoricalGDB(allWeeks);
 
-      // 6. Render bảng các dàn trong ảnh mới (BC -> BT) & cảnh báo dàn trùng nhau
+      // 6. Render bảng các dàn bổ sung (đã loại bỏ hoàn toàn dàn trùng)
       const f3ListAll = getImageF3F9A1Configs().map(cfg => {
         const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
         return { ...cfg, st };
       });
-      const dupCount = f3ListAll.filter(x => !!x.dupOf).length;
       const dupBadgeEl = document.getElementById("dup-summary-badge");
       if (dupBadgeEl) {
-        dupBadgeEl.innerText = `Phát hiện ${dupCount} dàn trùng số (có thể bỏ qua để đỡ rối)`;
+        dupBadgeEl.innerText = `✓ ${f3ListAll.length} dàn riêng biệt (0 dàn trùng)`;
       }
 
       const f3List = f3ListAll.filter(x => {
-        if (f3f9FilterMode === 'dup') return !!x.dupOf;
-        if (f3f9FilterMode === 'unique') return !x.dupOf;
+        if (f3f9FilterMode === 'gan_watch') return x.st.level === 'watch' || x.st.level === 'max';
         return true;
       });
 
       let hF3 = `<thead><tr>
         <th>STT</th>
-        <th>Nhóm</th>
-        <th>Tên Dàn (Kèm gan & báo trùng)</th>
+        <th>Tên Dàn (Kèm số ngày chưa về)</th>
+        <th>Các số trong dàn</th>
         <th>Số con</th>
         <th>Ngày về gần nhất</th>
-        <th>Số ngày chưa về</th>
-        <th>Max</th>
-        <th>Gợi ý trùng dàn</th>
+        <th>Gan (ngày chưa về)</th>
+        <th>Max thực tế</th>
+        <th>Trạng thái</th>
       </tr></thead><tbody>`;
 
       f3List.forEach((cfg, idx) => {
         const st = cfg.st;
-        const trueMaxF3 = st.effMax;
-        const cls = DAN_LEVEL[st.level].cls;
+        const lv = DAN_LEVEL[st.level];
+        const statusTxt = st.over > 0 ? `Vượt Max (+${st.over}ng)!` : lv.text;
 
         const gBadge = st.daysSince === 0
           ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
-          : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
+          : `<span class="gan-inline-badge">chưa về ${st.daysSince} ngày</span>`;
 
-        const dupTag = cfg.dupOf
-          ? `<span style="color:#b91c1c; font-weight:700;">⚠️ Trùng "${cfg.dupOf}" (Có thể bỏ qua)</span>`
-          : `<span style="color:#15803d; font-weight:600;">Dàn riêng biệt</span>`;
-
-        hF3 += `<tr class="${cls}">
+        hF3 += `<tr class="${lv.cls}">
           <td>${idx + 1}</td>
-          <td><span class="tag-grp tag-rst">${cfg.subGroup}</span></td>
           <td style="text-align:left;">
-            <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
-              ${cfg.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
-            </div>
-            <div style="display:none; font-size:11px; color:#444; max-width:340px; white-space:normal; margin-top:4px; background:#f8fafc; padding:4px 6px; border-radius:4px; border:1px solid #e2e8f0;">
-              ${cfg.nums.join(", ")}
-            </div>
+            <div style="font-weight:700; color:#14365d;">${cfg.name.replace(/\s*-\s*Ảnh/gi, '')} — ${gBadge}</div>
+            <span class="de-sub">${cfg.subGroup}</span>
           </td>
+          <td style="text-align:left;">${renderDanNumsPreview(cfg.nums, 8)}</td>
           <td><b>${cfg.nums.length}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${trueMaxF3}ng</b> <span class="de-sub">(Thực tế: ${st.maxObserved}ng)</span></td>
-          <td style="text-align:left;">${dupTag}</td>
+          <td><b>${st.realMax}ng</b> <span class="de-sub">(Chuẩn: ${st.ref}ng)</span></td>
+          <td><span class="badge-status ${lv.badge}">${statusTxt}</span></td>
         </tr>`;
       });
       document.getElementById("tbl-f3f9-dans").innerHTML = hF3 + `</tbody>`;
