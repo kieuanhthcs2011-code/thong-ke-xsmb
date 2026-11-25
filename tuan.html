@@ -6,6 +6,103 @@
   <title>Trang 1: GĐB Theo Tuần - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <style>
+    .nuoi-panel {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    }
+    .nuoi-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .nuoi-title {
+      font-weight: 800;
+      font-size: 14px;
+      color: #0f172a;
+    }
+    .nuoi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .nuoi-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+    .nuoi-field input,
+    .nuoi-field select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border: 1px solid #94a3b8;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0f172a;
+      background: #fff;
+    }
+    .nuoi-summary {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #0f172a;
+    }
+    .nuoi-badge-hit {
+      display: inline-block;
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .nuoi-badge-wait {
+      display: inline-block;
+      background: #fef9c3;
+      color: #854d0e;
+      border: 1px solid #fde047;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .nuoi-cell-hit {
+      background: #dcfce7 !important;
+      outline: 2px solid #16a34a;
+    }
+    .nuoi-cell-active {
+      background: #fef9c3 !important;
+    }
+    .btn-clear-nuoi {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
   <header class="top-bar">
@@ -57,6 +154,46 @@
       </label>
       <label>2 số cuối: <input type="text" id="filter-de" class="filter-input" maxlength="2" placeholder="VD: 89" style="width:65px" oninput="renderPage()" /></label>
     </div>
+        <div class="nuoi-panel" id="nuoi-tracker-box">
+      <div class="nuoi-head">
+        <span class="nuoi-title">🎯 BẢNG NUÔI SỐ & TÍNH TIỀN TỰ ĐỘNG THEO TUẦN</span>
+        <button type="button" class="btn-clear-nuoi" onclick="clearNuoiData()">Xóa dữ liệu nuôi</button>
+      </div>
+      <div class="nuoi-grid">
+        <div class="nuoi-field">
+          <label for="nuoi-nums">Số đang nuôi (2 số, cách nhau dấu phẩy/cách)</label>
+          <input type="text" id="nuoi-nums" placeholder="VD: 89, 03, 78" oninput="onNuoiChange()" />
+        </div>
+        <div class="nuoi-field">
+          <label for="nuoi-type">Loại cược / Hình thức</label>
+          <select id="nuoi-type" onchange="onNuoiChange()">
+            <option value="de" selected>Đề (2 số cuối GĐB)</option>
+            <option value="lo">Lô / Loto 2 số (1 điểm)</option>
+          </select>
+        </div>
+        <div class="nuoi-field">
+          <label for="nuoi-base-amt">Tiền ngày 1 / 1 số (VNĐ)</label>
+          <input type="number" id="nuoi-base-amt" min="0" step="1000" value="10000" oninput="onNuoiChange()" />
+        </div>
+        <div class="nuoi-field">
+          <label for="nuoi-step-mode">Cách tăng tiền các ngày sau</label>
+          <select id="nuoi-step-mode" onchange="onNuoiChange()">
+            <option value="flat" selected>Giữ nguyên mỗi ngày (x1)</option>
+            <option value="add">Cộng thêm tiền gốc (+1x/ngày)</option>
+            <option value="mul2">Gấp đôi mỗi ngày (x2/ngày)</option>
+          </select>
+        </div>
+        <div class="nuoi-field">
+          <label for="nuoi-payout">Tỷ lệ ăn (VD: 95 hoặc 99)</label>
+          <input type="number" id="nuoi-payout" min="1" step="1" value="95" oninput="onNuoiChange()" />
+        </div>
+        <div class="nuoi-field">
+          <label for="nuoi-days">Số ngày nuôi trong chu kỳ</label>
+          <input type="number" id="nuoi-days" min="1" max="30" step="1" value="7" oninput="onNuoiChange()" />
+        </div>
+      </div>
+      <div class="nuoi-summary" id="nuoi-summary-box"></div>
+    </div>
     <div class="table-wrap"><table class="stat-table" id="tbl-1"></table></div>
 
     <div class="page-footer-nav">
@@ -72,8 +209,11 @@
       const fCham = document.getElementById('filter-cham').value;
       const fTong = document.getElementById('filter-tong').value;
       const fDe = document.getElementById('filter-de').value.trim();
+      const cfg = getNuoiConfig();
 
-      const weeks = getNormalizedWeeks(globalData.weeks_gdb).slice(0, limit);
+      const allNormWeeks = getNormalizedWeeks(globalData.weeks_gdb);
+      renderNuoiSummary(cfg, allNormWeeks);
+      const weeks = allNormWeeks.slice(0, limit);
       const daysName = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
       let h = `<thead><tr><th>Tuần (Từ T2 → CN)</th>${daysName.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>`;
       weeks.forEach((wk, idx) => {
@@ -92,7 +232,12 @@
               if (fTong && String(t) !== fTong) match = false;
               if (fDe && de !== fDe) match = false;
             }
-            h += `<td class="${match ? 'highlight-match' : ''}"><span class="date-tag">${dShort}</span><br><b>${val}</b><span class="de-sub"><span class="de-gray-pill">Đề ${de}</span> · Tổng ${t}</span></td>`;
+            const isNuoiHit = cfg.nums.length > 0 && cfg.nums.includes(de);
+            const clsList = [];
+            if (match) clsList.push("highlight-match");
+            if (isNuoiHit) clsList.push("nuoi-cell-hit");
+            const badgeHtml = isNuoiHit ? `<br><span class="nuoi-badge-hit">TRÚNG NUÔI (${de})</span>` : "";
+            h += `<td class="${clsList.join(" ")}"><span class="date-tag">${dShort}</span><br><b>${val}</b><span class="de-sub"><span class="de-gray-pill">Đề ${de}</span> · Tổng ${t}</span>${badgeHtml}</td>`;
           } else {
             h += `<td style="color:#aaa"><span class="date-tag" style="color:#aaa">${dShort}</span><br>—</td>`;
           }
@@ -101,6 +246,159 @@
       });
       document.getElementById("tbl-1").innerHTML = h + `</tbody>`;
     }
+    const NUOI_STORAGE_KEY = "thongkesxmb_tuan_nuoi_v1";
+
+    function parseNuoiList(raw) {
+      const tokens = String(raw || "").split(/[^0-9]+/).filter(Boolean);
+      const out = [];
+      tokens.forEach(tok => {
+        if (tok.length === 1) out.push(tok.padStart(2, "0"));
+        else if (tok.length === 2) out.push(tok);
+        else {
+          for (let i = 0; i + 1 < tok.length; i += 2) out.push(tok.slice(i, i + 2));
+        }
+      });
+      return Array.from(new Set(out.filter(x => /^\d{2}$/.test(x))));
+    }
+
+    function formatVND(num) {
+      return Math.round(Number(num) || 0).toLocaleString("vi-VN") + " đ";
+    }
+
+    function getNuoiConfig() {
+      const nums = parseNuoiList(document.getElementById("nuoi-nums").value);
+      const type = document.getElementById("nuoi-type").value || "de";
+      const baseAmt = Math.max(0, Number(document.getElementById("nuoi-base-amt").value) || 0);
+      const stepMode = document.getElementById("nuoi-step-mode").value || "flat";
+      const payout = Math.max(1, Number(document.getElementById("nuoi-payout").value) || 95);
+      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 7));
+      return { nums, type, baseAmt, stepMode, payout, days };
+    }
+
+    function dayMultiplier(dayIndex1Based, stepMode) {
+      if (stepMode === "add") return dayIndex1Based;
+      if (stepMode === "mul2") return Math.pow(2, dayIndex1Based - 1);
+      return 1;
+    }
+
+    function saveNuoiConfig() {
+      try {
+        const payload = {
+          numsRaw: document.getElementById("nuoi-nums").value,
+          type: document.getElementById("nuoi-type").value,
+          baseAmt: document.getElementById("nuoi-base-amt").value,
+          stepMode: document.getElementById("nuoi-step-mode").value,
+          payout: document.getElementById("nuoi-payout").value,
+          days: document.getElementById("nuoi-days").value
+        };
+        localStorage.setItem(NUOI_STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {}
+    }
+
+    function loadNuoiConfig() {
+      try {
+        const raw = localStorage.getItem(NUOI_STORAGE_KEY);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (p.numsRaw !== undefined) document.getElementById("nuoi-nums").value = p.numsRaw;
+        if (p.type) document.getElementById("nuoi-type").value = p.type;
+        if (p.baseAmt !== undefined) document.getElementById("nuoi-base-amt").value = p.baseAmt;
+        if (p.stepMode) document.getElementById("nuoi-step-mode").value = p.stepMode;
+        if (p.payout !== undefined) document.getElementById("nuoi-payout").value = p.payout;
+        if (p.days !== undefined) document.getElementById("nuoi-days").value = p.days;
+      } catch (e) {}
+    }
+
+    function clearNuoiData() {
+      try { localStorage.removeItem(NUOI_STORAGE_KEY); } catch (e) {}
+      document.getElementById("nuoi-nums").value = "";
+      document.getElementById("nuoi-base-amt").value = "10000";
+      document.getElementById("nuoi-step-mode").value = "flat";
+      document.getElementById("nuoi-payout").value = "95";
+      document.getElementById("nuoi-days").value = "7";
+      renderPage();
+    }
+
+    function onNuoiChange() {
+      saveNuoiConfig();
+      renderPage();
+    }
+
+    function getChronologicalEntries(weeksDesc) {
+      const entries = [];
+      for (let wIdx = weeksDesc.length - 1; wIdx >= 0; wIdx--) {
+        const wk = weeksDesc[wIdx];
+        for (let d = 0; d < 7; d++) {
+          const val = wk.nums && wk.nums[d] ? String(wk.nums[d]).trim() : "";
+          if (/^\d{5}$/.test(val)) {
+            const dt = new Date(wk.mDt);
+            dt.setDate(wk.mDt.getDate() + d);
+            entries.push({
+              dateStr: formatShortDate(dt),
+              fullVal: val,
+              de: val.slice(-2)
+            });
+          }
+        }
+      }
+      return entries;
+    }
+
+    function renderNuoiSummary(cfg, allWeeks) {
+      const box = document.getElementById("nuoi-summary-box");
+      if (!box) return;
+      if (!cfg.nums.length) {
+        box.innerHTML = `Nhập <b>Số đang nuôi</b> (ví dụ <code>89, 03</code>) và số tiền để tự động tính chi phí từng ngày, tổng vốn và tiền lãi/lỗ.`;
+        return;
+      }
+
+      const entries = getChronologicalEntries(allWeeks);
+      const countNums = cfg.nums.length;
+      const effectiveDays = Math.min(cfg.days, entries.length || cfg.days);
+      const recentSlice = entries.slice(-effectiveDays);
+
+      let totalCost = 0;
+      let hitCount = 0;
+      const hitDetails = [];
+      const scheduleParts = [];
+
+      for (let i = 1; i <= cfg.days; i++) {
+        const mult = dayMultiplier(i, cfg.stepMode);
+        const perNumCost = cfg.baseAmt * mult;
+        const dayCost = perNumCost * countNums;
+        if (i <= effectiveDays) {
+          totalCost += dayCost;
+          const item = recentSlice[i - 1];
+          const isHit = item && cfg.nums.includes(item.de);
+          if (isHit) {
+            hitCount += 1;
+            hitDetails.push(`Ngày ${i} (${item.dateStr}): về <b>${item.de}</b>`);
+          }
+        }
+        scheduleParts.push(`N${i}: ${formatVND(dayCost)}`);
+      }
+
+      const unitWin = cfg.baseAmt * cfg.payout;
+      let totalWin = 0;
+      for (let i = 1; i <= recentSlice.length; i++) {
+        const item = recentSlice[i - 1];
+        if (cfg.nums.includes(item.de)) {
+          totalWin += cfg.baseAmt * dayMultiplier(i, cfg.stepMode) * cfg.payout;
+        }
+      }
+      const netProfit = totalWin - totalCost;
+      const profitColor = netProfit >= 0 ? "#15803d" : "#b91c1c";
+      const profitSign = netProfit >= 0 ? "+" : "";
+
+      box.innerHTML = `
+        <div><b>Danh sách nuôi (${countNums} số):</b> <code>${cfg.nums.join(", ")}</code> · <b>Tỷ lệ ăn:</b> 1 ăn ${cfg.payout} · <b>Mức ăn 1 số ngày 1:</b> ${formatVND(unitWin)}</div>
+        <div style="margin-top:4px;"><b>Tiền vốn đã tính (${effectiveDays} ngày gần nhất):</b> <b>${formatVND(totalCost)}</b> · <b>Số lần trúng:</b> <b>${hitCount}</b> · <b>Tiền thu về:</b> <b>${formatVND(totalWin)}</b> · <b>Lãi/Lỗ ròng:</b> <b style="color:${profitColor}">${profitSign}${formatVND(netProfit)}</b></div>
+        <div style="margin-top:4px; font-size:12px; color:#334155;"><b>Lịch vào tiền theo ngày:</b> ${scheduleParts.join(" | ")}</div>
+        ${hitDetails.length ? `<div style="margin-top:4px; color:#166534;"><b>Các ngày trúng:</b> ${hitDetails.join(" · ")}</div>` : `<div style="margin-top:4px; color:#64748b;">Chưa có ngày nào trúng trong ${effectiveDays} ngày gần nhất.</div>`}
+      `;
+    }
+
+    loadNuoiConfig();
     loadSharedData(renderPage);
   </script>
 </body>
