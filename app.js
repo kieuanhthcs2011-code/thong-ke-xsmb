@@ -604,7 +604,6 @@ function getDanConfigs() {
     { group: "Chú thích Cột T", short: "T44 (44s)", name: "Cột T44: Dàn 44 số (Chú thích)", count: 44, nums: ["02","05","08","10","11","14","15","16","17","21","22","24","29","30","31","32","33","35","40","41","43","44","45","48","49","50","53","59","63","65","67","68","75","77","79","80","88","89","90","91","92","93","97","99"], excelMax: 16 }
   ];
 }
-}
 
 function getLichNuoiThang(histGDB, refYear, refMonth) {
   const all100 = Array.from({ length: 100 }, (_, i) => String(i).padStart(2, '0'));
