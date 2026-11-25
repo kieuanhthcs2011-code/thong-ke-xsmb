@@ -333,7 +333,7 @@
           <td><b>${cfg.count}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${st.maxObserved} ngày</b> <span class="de-sub">(Ảnh/R: ${cfg.excelMax}ng)</span></td>
+          <td><b>${Math.max(cfg.excelMax, st.maxObserved)} ngày</b> <span class="de-sub">(Thực tế lịch sử: ${st.maxObserved}ng)</span></td>
           <td>${badge}</td>
         </tr>`;
       });
@@ -407,7 +407,7 @@
           gBadge = `<span class="gan-inline-badge is-warn">gan ${st.daysSince} ngày</span>`;
         }
         hCt += `<tr class="${cls}">
-          <td style="font-size:14px;"><b>${st.maxObserved}</b> <span class="de-sub">(Ảnh: ${mx})</span></td>
+          <td style="font-size:14px;"><b>${Math.max(mx, st.maxObserved)}</b> <span class="de-sub">(Thực tế: ${st.maxObserved})</span></td>
           <td style="text-align:left;">
             <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
               ${item.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
@@ -482,10 +482,11 @@
 
       f3List.forEach((cfg, idx) => {
         const st = cfg.st;
+        const trueMaxF3 = Math.max(cfg.excelMax, st.maxObserved);
         let cls = "";
         if (st.daysSince === 0) cls = "bg-green";
-        else if (st.daysSince >= st.maxObserved || st.daysSince >= 25) cls = "bg-red-alert";
-        else if (st.daysSince >= 15 || st.daysSince >= Math.floor(cfg.excelMax * 0.72)) cls = "bg-yellow";
+        else if (st.daysSince >= trueMaxF3) cls = "bg-red-alert";
+        else if (st.daysSince >= Math.floor(trueMaxF3 * 0.72)) cls = "bg-yellow";
 
         const gBadge = st.daysSince === 0
           ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
@@ -509,7 +510,7 @@
           <td><b>${cfg.nums.length}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${st.maxObserved}ng</b> <span class="de-sub">(Ảnh: ${cfg.excelMax}ng)</span></td>
+          <td><b>${trueMaxF3}ng</b> <span class="de-sub">(Thực tế: ${st.maxObserved}ng)</span></td>
           <td style="text-align:left;">${dupTag}</td>
         </tr>`;
       });

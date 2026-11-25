@@ -42,10 +42,16 @@ function getNormalizedWeeks(rawWeeks) {
       monStr = item.monday;
       nums = item.nums;
     }
-    const sig = nums.join('|');
+    const cleanNums = (nums || []).slice(0, 7).map(x => (x || "").trim());
+    while (cleanNums.length < 7) cleanNums.push("");
+    const nonEmptySig = cleanNums.filter(Boolean).join('|');
     let exists = false;
     for (const ex of mapByMon.values()) {
-      if (ex.nums.join('|') === sig && sig !== '||||||') { exists = true; break; }
+      const exSig = ex.nums.filter(Boolean).join('|');
+      if (nonEmptySig && (exSig === nonEmptySig || exSig.startsWith(nonEmptySig + '|') || nonEmptySig.startsWith(exSig + '|'))) {
+        exists = true;
+        break;
+      }
     }
     if (!exists && !mapByMon.has(monStr)) {
       const mDt = parseVNDate(monStr);
@@ -55,10 +61,34 @@ function getNormalizedWeeks(rawWeeks) {
         monday: monStr,
         mDt,
         label: `${formatShortDate(mDt)} - ${formatVNDate(sDt)}`,
-        nums: [...nums]
+        nums: cleanNums
       });
     }
   });
+
+  // Đồng bộ chính xác theo ngày thực tế từ daily_prizes (nếu có) để không bao giờ lệch tuần
+  if (typeof globalData !== "undefined" && globalData && Array.isArray(globalData.daily_prizes)) {
+    globalData.daily_prizes.forEach(dp => {
+      if (!dp || !dp.date || !Array.isArray(dp.prizes) || !dp.prizes[0]) return;
+      const dt = parseVNDate(dp.date);
+      const wd = (dt.getDay() + 6) % 7; // Mon=0 .. Sun=6
+      const mDt = new Date(dt);
+      mDt.setDate(dt.getDate() - wd);
+      const monStr = formatVNDate(mDt);
+      if (!mapByMon.has(monStr)) {
+        const sDt = new Date(mDt);
+        sDt.setDate(mDt.getDate() + 6);
+        mapByMon.set(monStr, {
+          monday: monStr,
+          mDt,
+          label: `${formatShortDate(mDt)} - ${formatVNDate(sDt)}`,
+          nums: ["", "", "", "", "", "", ""]
+        });
+      }
+      mapByMon.get(monStr).nums[wd] = dp.prizes[0];
+    });
+  }
+
   return Array.from(mapByMon.values()).sort((a, b) => b.mDt - a.mDt);
 }
 
@@ -79,12 +109,17 @@ function getAllHistoricalGDB(allWeeks) {
 }
 
 function computeDanStats(histGDB, targetSet) {
-  let daysSince = 0, lastHitDate = "Chưa thấy", lastHitDe = "--", maxObserved = 0, curStreak = 0;
+  let daysSince = 0, lastHitDate = "Chưa thấy", lastHitDe = "--", maxClosedStreak = 0, curStreak = 0;
+  let seenFirstHit = false;
   for (let i = 0; i < histGDB.length; i++) {
     const item = histGDB[i];
     if (!item || !item.de || !/^\d{2}$/.test(item.de)) continue;
     if (targetSet.has(item.de)) {
-      if (curStreak > maxObserved) maxObserved = curStreak;
+      // Chỉ tính max từ các chu kỳ đã về thực tế; không cộng dồn chu kỳ đầu chưa có mốc mở
+      if (seenFirstHit && curStreak > maxClosedStreak) {
+        maxClosedStreak = curStreak;
+      }
+      seenFirstHit = true;
       curStreak = 0;
       lastHitDate = item.date;
       lastHitDe = item.de;
@@ -93,8 +128,8 @@ function computeDanStats(histGDB, targetSet) {
     }
   }
   daysSince = curStreak;
-  if (curStreak > maxObserved) maxObserved = curStreak;
-  return { daysSince, lastHitDate, lastHitDe, maxObserved };
+  // Không lấy chuỗi hiện tại chưa về làm maxObserved
+  return { daysSince, lastHitDate, lastHitDe, maxObserved: maxClosedStreak };
 }
 
 function getBoKep4SoConfigs() {
@@ -586,28 +621,28 @@ function getImageF3F9A1Configs() {
     { subGroup: "Dàn lẻ / Khối (BR-BT & BD-BM)", name: "Dàn Hồng (Max 21 - 32s) - Ảnh", excelMax: 21, nums: ["06","07","08","09","16","17","18","19","23","24","25","26","33","34","35","36","56","57","58","59","66","67","68","69","73","74","75","76","83","84","85","86"] },
     { subGroup: "Dàn lẻ / Khối (BR-BT & BD-BM)", name: "Dàn Đỏ (Max 19 - 30s) - Ảnh", excelMax: 19, nums: ["03","13","23","33","43","53","63","73","83","93","05","15","25","35","45","55","65","75","85","95","07","17","27","37","47","57","67","77","87","97"] },
     { subGroup: "Dàn lẻ / Khối (BR-BT & BD-BM)", name: "Dàn Tím (60s) - Ảnh", excelMax: 20, nums: ["04","06","07","12","13","18","23","25","26","28","35","37","46","47","53","58","60","66","69","70","79","80","83","94","95","98"] },
-    // 6. Các bộ 5 số / dàn cột BR-BT
+    // 6. Các bộ 5 số / dàn cột BR-BT (Đúng Max thực tế từ ảnh Excel)
     ...[
-      { n: "Dàn BR-1 (03..83)", mx: 25, nums: ["03","23","43","63","83"] },
-      { n: "Dàn BR-2 (01..81)", mx: 40, nums: ["01","21","41","61","81"] },
-      { n: "Dàn BR-3 (05..85)", mx: 65, nums: ["05","25","45","65","85"] },
-      { n: "Dàn BR-4 (07..87)", mx: 25, nums: ["07","27","47","67","87"] },
-      { n: "Dàn BR-5 (09..89)", mx: 25, nums: ["09","29","49","69","89"] },
-      { n: "Dàn BR-6 (10..90)", mx: 25, nums: ["10","30","50","70","90"] },
-      { n: "Dàn BR-7 (12..92)", mx: 40, nums: ["12","32","52","72","92"] },
-      { n: "Dàn BR-8 (14..94)", mx: 25, nums: ["14","34","54","74","94"] },
-      { n: "Dàn BR-9 (16..96)", mx: 25, nums: ["16","36","56","76","96"] },
-      { n: "Dàn BR-10 (18..98)", mx: 50, nums: ["18","38","58","78","98"] },
-      { n: "Dàn BR-11 (11..19)", mx: 25, nums: ["11","13","15","17","19"] },
-      { n: "Dàn BR-12 (31..39)", mx: 25, nums: ["31","33","35","37","39"] },
-      { n: "Dàn BR-13 (51..59)", mx: 25, nums: ["51","53","55","57","59"] },
-      { n: "Dàn BR-14 (71..79)", mx: 25, nums: ["71","73","75","77","79"] },
-      { n: "Dàn BR-15 (91..99)", mx: 25, nums: ["91","93","95","97","99"] },
-      { n: "Dàn BR-16 (00..08)", mx: 25, nums: ["00","02","04","06","08"] },
-      { n: "Dàn BR-17 (20..28)", mx: 25, nums: ["20","22","24","26","28"] },
-      { n: "Dàn BR-18 (40..48)", mx: 70, nums: ["40","42","44","46","48"] },
-      { n: "Dàn BR-19 (60..68)", mx: 25, nums: ["60","62","64","66","68"] },
-      { n: "Dàn BR-20 (80..88)", mx: 25, nums: ["80","82","84","86","88"] }
+      { n: "Dàn BR-1 (03..83)", mx: 124, nums: ["03","23","43","63","83"] },
+      { n: "Dàn BR-2 (01..81)", mx: 195, nums: ["01","21","41","61","81"] },
+      { n: "Dàn BR-3 (05..85)", mx: 134, nums: ["05","25","45","65","85"] },
+      { n: "Dàn BR-4 (07..87)", mx: 192, nums: ["07","27","47","67","87"] },
+      { n: "Dàn BR-5 (09..89)", mx: 104, nums: ["09","29","49","69","89"] },
+      { n: "Dàn BR-6 (10..90)", mx: 115, nums: ["10","30","50","70","90"] },
+      { n: "Dàn BR-7 (12..92)", mx: 129, nums: ["12","32","52","72","92"] },
+      { n: "Dàn BR-8 (14..94)", mx: 137, nums: ["14","34","54","74","94"] },
+      { n: "Dàn BR-9 (16..96)", mx: 113, nums: ["16","36","56","76","96"] },
+      { n: "Dàn BR-10 (18..98)", mx: 186, nums: ["18","38","58","78","98"] },
+      { n: "Dàn BR-11 (11..19)", mx: 118, nums: ["11","13","15","17","19"] },
+      { n: "Dàn BR-12 (31..39)", mx: 111, nums: ["31","33","35","37","39"] },
+      { n: "Dàn BR-13 (51..59)", mx: 155, nums: ["51","53","55","57","59"] },
+      { n: "Dàn BR-14 (71..79)", mx: 101, nums: ["71","73","75","77","79"] },
+      { n: "Dàn BR-15 (91..99)", mx: 106, nums: ["91","93","95","97","99"] },
+      { n: "Dàn BR-16 (00..08)", mx: 98,  nums: ["00","02","04","06","08"] },
+      { n: "Dàn BR-17 (20..28)", mx: 125, nums: ["20","22","24","26","28"] },
+      { n: "Dàn BR-18 (40..48)", mx: 140, nums: ["40","42","44","46","48"] },
+      { n: "Dàn BR-19 (60..68)", mx: 138, nums: ["60","62","64","66","68"] },
+      { n: "Dàn BR-20 (80..88)", mx: 114, nums: ["80","82","84","86","88"] }
     ].map(x => ({ subGroup: "Nhóm Dàn BR-BT (Ảnh)", name: x.n, excelMax: x.mx, nums: x.nums }))
   ];
 

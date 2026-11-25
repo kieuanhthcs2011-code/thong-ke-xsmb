@@ -114,22 +114,39 @@ def fetch_day_minhngoc(dt):
     }
 
 def normalize_weeks_list(weeks_gdb):
-    """Chuẩn hóa danh sách weeks_gdb (xử lý an toàn cả phần tử dạng dict lẫn list cũ)."""
+    """Chuẩn hóa danh sách weeks_gdb, loại bỏ tuần trùng lặp một phần (ghost week)."""
     base_mon = datetime(2026, 11, 23)
-    norm = []
+    by_mon = {}
     for idx, wk in enumerate(weeks_gdb):
         if isinstance(wk, dict) and wk.get("monday"):
-            norm.append(wk)
+            m_str = wk["monday"]
+            nums = (wk.get("nums", []) + ["", "", "", "", "", "", ""])[:7]
         elif isinstance(wk, list):
             m_dt = base_mon - timedelta(days=7 * idx)
+            m_str = m_dt.strftime("%d/%m/%Y")
+            nums = (wk + ["", "", "", "", "", "", ""])[:7]
+        else:
+            continue
+        if m_str not in by_mon:
+            m_dt = datetime.strptime(m_str, "%d/%m/%Y")
             s_dt = m_dt + timedelta(days=6)
-            norm.append({
-                "monday": m_dt.strftime("%d/%m/%Y"),
+            by_mon[m_str] = {
+                "monday": m_str,
                 "label": f"{m_dt.strftime('%d/%m')} - {s_dt.strftime('%d/%m/%Y')}",
-                "nums": (wk + ["", "", "", "", "", "", ""])[:7]
-            })
-    norm.sort(key=lambda w: datetime.strptime(w["monday"], "%d/%m/%Y"), reverse=True)
-    weeks_gdb[:] = norm
+                "nums": nums
+            }
+    norm = sorted(by_mon.values(), key=lambda w: datetime.strptime(w["monday"], "%d/%m/%Y"), reverse=True)
+    # Loại bỏ tuần cũ hơn nếu chuỗi số khác rỗng của nó bị trùng hoàn toàn với tuần mới hơn (ví dụ 09/11 bị dính 94495 của 23/11)
+    deduped = []
+    seen_sigs = []
+    for wk in norm:
+        sig = "|".join([x for x in wk["nums"] if x])
+        if sig and any(s == sig or s.startswith(sig + "|") for s in seen_sigs):
+            continue
+        if sig:
+            seen_sigs.append(sig)
+        deduped.append(wk)
+    weeks_gdb[:] = deduped
 
 def upsert_week_gdb(weeks_gdb, dt, db):
     normalize_weeks_list(weeks_gdb)
@@ -253,6 +270,10 @@ def main():
         for d in sorted(daily_map.keys(), key=lambda x: datetime.strptime(x, "%d/%m/%Y"))
     ][-90:]
     data["daily_prizes"] = sorted_daily
+    for item_d in sorted_daily:
+        dt_d = datetime.strptime(item_d["date"], "%d/%m/%Y")
+        if upsert_week_gdb(data["weeks_gdb"], dt_d, item_d["prizes"][0]):
+            updated = True
 
     # Đảm bảo tất cả các tuần gần đây đều có đủ dữ liệu giải phụ (C, D, E, AR, AS, G1CN)
     aux_map = data.setdefault("cham_aux_by_mon_gdb", {})
