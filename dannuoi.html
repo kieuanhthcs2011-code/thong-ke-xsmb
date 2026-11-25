@@ -221,7 +221,9 @@
       const cfg = list[idx];
       const panel = document.getElementById("matrix-dan-nums-panel");
       if (!cfg || !panel) return;
-      document.getElementById("matrix-dan-nums-title").textContent = `${cfg.name} (${cfg.count} số):`;
+      const maxGanNhat = cfg.st && cfg.st.maxObserved > 0 ? cfg.st.maxObserved : (cfg.st ? cfg.st.ref : 0);
+      const spanTxt = cfg.st && cfg.st.maxSpan ? ` — Chu kỳ: ${cfg.st.maxSpan}` : "";
+      document.getElementById("matrix-dan-nums-title").textContent = `${cfg.name} (${cfg.count} số) | Số ngày gan nhất: ${maxGanNhat} ngày${spanTxt}:`;
       document.getElementById("matrix-dan-nums-list").textContent = cfg.nums.join(", ");
       panel.style.display = "block";
     }
@@ -264,17 +266,61 @@
     function renderLichNuoi() {
       if (!globalData) return;
       const hist = getAllHistoricalGDB(getNormalizedWeeks(globalData.weeks_gdb));
-      const today = new Date().getDate();
-      document.getElementById("lich-today").innerText = `Hôm nay: ngày ${today}`;
-      let h = `<thead><tr><th>Khung ngày</th><th>Dàn nuôi</th><th>Số con</th><th>Gan</th><th>Max</th><th>Trạng thái</th></tr></thead><tbody>`;
-      getLichNuoiThang().forEach(it => {
+      const latestItem = hist.length ? hist[hist.length - 1] : null;
+      const refDt = latestItem && latestItem.dt ? latestItem.dt : new Date();
+      const curDay = refDt.getDate();
+      const curMonth = refDt.getMonth() + 1;
+      const curYear = refDt.getFullYear();
+      const daysInMonth = new Date(curYear, curMonth, 0).getDate();
+      document.getElementById("lich-today").innerText = `Cập nhật: ${latestItem ? latestItem.date : ""} (Ngày ${curDay}/${String(curMonth).padStart(2, "0")})`;
+
+      let h = `<thead><tr>
+        <th>Khung ngày</th>
+        <th>Dàn nuôi (Bấm xem số)</th>
+        <th>Số con</th>
+        <th>Kết quả trong khung</th>
+        <th>Gan</th>
+        <th>Gan nhất</th>
+      </tr></thead><tbody>`;
+
+      getLichNuoiThang(hist, curYear, curMonth).forEach((it, lIdx) => {
         const ev = evaluateDan(hist, it.dan.nums, it.dan.excelMax);
-        const active = today >= it.from && today <= it.to;
-        const lv = DAN_LEVEL[ev.level];
-        h += `<tr class="${active ? 'bg-yellow' : ''}"><td><b>${it.from} → ${it.to === 31 ? "hết tháng" : it.to}</b>${active ? " ◀ đang nuôi" : ""}</td>
-          <td style="text-align:left;">${it.label}</td><td>${it.dan.count}s</td>
-          <td><b>${ev.gan === 0 ? "vừa về" : ev.gan + " ngày"}</b></td><td>${ev.effMax}</td>
-          <td><span class="badge-status ${lv.badge}">${lv.text}</span></td></tr>`;
+        const endDay = it.to === 31 ? daysInMonth : Math.min(it.to, daysInMonth);
+        const active = curDay >= it.from && curDay <= endDay;
+        const numSet = new Set(it.dan.nums);
+
+        const hitsInWindow = hist.filter(item => {
+          if (!item.dt) return false;
+          const m = item.dt.getMonth() + 1;
+          const y = item.dt.getFullYear();
+          const d = item.dt.getDate();
+          return y === curYear && m === curMonth && d >= it.from && d <= endDay && numSet.has(item.de);
+        });
+
+        const winStatusHtml = hitsInWindow.length
+          ? `<span class="badge-status st-hit">Đã về (${hitsInWindow.map(x => x.date.slice(0,5) + ":" + x.de).join(", ")})</span>`
+          : (curDay < it.from
+              ? `<span class="badge-status st-normal">Chưa tới khung</span>`
+              : `<span class="badge-status st-watch">Chưa về</span>`);
+
+        const maxGanNhat = ev.maxObserved > 0 ? ev.maxObserved : ev.ref;
+        const rowCls = active ? "bg-yellow" : (hitsInWindow.length ? "" : "");
+
+        h += `<tr class="${rowCls}">
+          <td><b>${String(it.from).padStart(2,"0")}/${String(curMonth).padStart(2,"0")} → ${String(endDay).padStart(2,"0")}/${String(curMonth).padStart(2,"0")}</b>${active ? "<br><small style='color:#b80000; font-weight:800;'>◀ Đang nuôi</small>" : ""}</td>
+          <td style="text-align:left;">
+            <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+              ${it.label} <small style="color:#0969da;">[Xem số ▾]</small>
+            </div>
+            <div style="display:none; font-size:11px; color:#334155; max-width:300px; white-space:normal; margin-top:4px; background:#f8fafc; padding:4px 6px; border-radius:4px; border:1px solid #cbd5e1;">
+              ${it.dan.nums.join(", ")}
+            </div>
+          </td>
+          <td><b>${it.dan.count}s</b></td>
+          <td>${winStatusHtml}</td>
+          <td><b>${ev.gan === 0 ? "0 ngày" : ev.gan + " ngày"}</b></td>
+          <td><b>${maxGanNhat} ngày</b></td>
+        </tr>`;
       });
       document.getElementById("tbl-lich-thang").innerHTML = h + `</tbody>`;
     }
@@ -449,8 +495,9 @@
         ${configs.map((c, cIdx) => {
           const gTxt = c.st.daysSince === 0 ? "về 0 ngày" : `gan ${c.st.daysSince} ngày`;
           const pCls = c.st.daysSince === 0 ? "th-gan-pill is-zero" : "th-gan-pill";
-          const tip = `${c.name} (${c.count}s): ${c.nums.join(", ")}`;
-          return `<th title="${tip}">${c.short} (${c.count}s)<br><span class="${pCls}">${gTxt}</span><br><button type="button" onclick="showMatrixDanNums(${cIdx})" style="margin-top:3px; border:1px solid #bfdbfe; background:#fff; color:#1e3a8a; border-radius:4px; padding:1px 6px; font-size:10px; font-weight:700; cursor:pointer;">[Xem số ▾]</button></th>`;
+          const maxGanNhat = c.st.maxObserved > 0 ? c.st.maxObserved : (c.st.ref || 0);
+          const tip = `${c.name} (${c.count}s) | Gan nhất: ${maxGanNhat} ngày (${c.st.maxSpan || "chuẩn " + c.st.ref + "ng"}): ${c.nums.join(", ")}`;
+          return `<th title="${tip}">${c.short} (${c.count}s)<br><span class="${pCls}">${gTxt}</span><div style="margin-top:2px; font-size:10px; font-weight:800; color:#fde047;">Gan nhất: ${maxGanNhat}ng</div><button type="button" onclick="showMatrixDanNums(${cIdx})" style="margin-top:3px; border:1px solid #bfdbfe; background:#fff; color:#1e3a8a; border-radius:4px; padding:1px 6px; font-size:10px; font-weight:700; cursor:pointer;">[Xem số ▾]</button></th>`;
         }).join("")}
       </tr></thead><tbody>`;
 

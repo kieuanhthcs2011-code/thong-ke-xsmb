@@ -481,11 +481,51 @@ function getDanConfigs() {
 
 
 /* Lịch nuôi theo ngày trong tháng (tab 'tính' BB–BJ): khoảng ngày -> dàn đang nuôi */
-function getLichNuoiThang() {
+function buildDanByTong(t) {
+  const out = [];
+  for (let i = 0; i < 100; i++) {
+    const s = String(i).padStart(2, "0");
+    if (((parseInt(s[0], 10) + parseInt(s[1], 10)) % 10) === t) out.push(s);
+  }
+  return out;
+}
+
+function getLichNuoiThang(histGDB, refYear, refMonth) {
   const byShort = {};
   getDanConfigs().forEach(c => { byShort[c.short] = c; });
+
+  // Tìm GĐB ngày mùng 4 của tháng (ưu tiên tháng đang xét, nếu chưa có thì tìm mùng 4 gần nhất)
+  let d04Item = null;
+  if (Array.isArray(histGDB) && histGDB.length) {
+    if (refYear && refMonth) {
+      d04Item = histGDB.find(it => it.dt && it.dt.getFullYear() === refYear && (it.dt.getMonth() + 1) === refMonth && it.dt.getDate() === 4) || null;
+    }
+    if (!d04Item) {
+      for (let i = histGDB.length - 1; i >= 0; i--) {
+        if (histGDB[i].dt && histGDB[i].dt.getDate() === 4) { d04Item = histGDB[i]; break; }
+      }
+    }
+  }
+
+  let m4Item = byShort["T3-8 (4→10)"] || { name: "Nuôi Tổng mùng 4", count: 10, nums: buildDanByTong(3), excelMax: 17 };
+  let m4Label = "Mùng 4 → lấy tổng 2 số cuối ĐB nuôi đến ngày 10";
+  if (d04Item && d04Item.de && /^\d{2}$/.test(d04Item.de)) {
+    const dA = parseInt(d04Item.de[0], 10);
+    const dB = parseInt(d04Item.de[1], 10);
+    const rawSum = dA + dB;
+    const tongVal = rawSum % 10;
+    const tongNums = buildDanByTong(tongVal);
+    m4Label = `Mùng 4 (${d04Item.date}) ĐB ${d04Item.db} → Đề ${d04Item.de} (${dA}+${dB}=${rawSum}, Tổng ${tongVal}) nuôi đến ngày 10`;
+    m4Item = {
+      name: `Tổng ${tongVal} (từ Đề ${d04Item.de} ngày ${d04Item.date})`,
+      count: tongNums.length,
+      nums: tongNums,
+      excelMax: 54
+    };
+  }
+
   return [
-    { from: 4,  to: 10, label: "Mùng 4 nổ 44 → nuôi Tổng 3-8 (4→10)",  dan: byShort["T3-8 (4→10)"] },
+    { from: 4,  to: 10, label: m4Label,                                   dan: m4Item },
     { from: 8,  to: 14, label: "Từ ngày 8–14 → nuôi Tổng 4-9",          dan: byShort["T4-9 (8→14)"] },
     { from: 15, to: 22, label: "Từ ngày 15–22 → nuôi 2 Kép",            dan: byShort["2 Kép (15→22)"] },
     { from: 26, to: 31, label: "Từ ngày 26–hết tháng → nuôi Tổng 1-6",  dan: byShort["T1-6 (26→hết)"] }
