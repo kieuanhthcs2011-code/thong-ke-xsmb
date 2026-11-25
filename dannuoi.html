@@ -152,13 +152,11 @@
 
       <div>
         <div class="card-panel">
-          <div class="card-header"><span>4. BẢNG TÍNH GỐC & LÃI NUÔI KHUNG 7 NGÀY (2-4-7-11-16-22-30)</span></div>
-          <div style="padding:10px; background:#f8fafc; border-bottom:1px solid #ddd; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-            <label>Số con dàn: <input type="number" id="calc-so" class="calc-input" value="36" oninput="renderMoneyCalc()"></label>
-            <label>Mức ăn (1 ăn): <input type="number" id="calc-an" class="calc-input" value="98" oninput="renderMoneyCalc()"></label>
-            <label>Đơn giá (nghìn): <input type="number" id="calc-gia" class="calc-input" value="1" step="0.5" oninput="renderMoneyCalc()"></label>
+          <div class="card-header">
+            <span>4. CẶP TỔNG 20 SỐ: TỔNG 0-5, TỔNG 1-6, TỔNG 2-7, TỔNG 3-8, TỔNG 4-9</span>
+            <span style="font-size:11px; font-weight:normal;">Bấm vào tên dàn để xem đủ 20 số</span>
           </div>
-          <div style="overflow-x:auto;"><table class="stat-table" id="tbl-nuoi-tien"></table></div>
+          <div style="overflow-x:auto;"><table class="stat-table" id="tbl-cap-tong-20s"></table></div>
         </div>
 
         <div class="card-panel">
@@ -222,24 +220,13 @@
       </div>
     </div>
 
-    <!-- BẢNG 8: 5 DÀN CẶP TỔNG 20 SỐ (TỔNG 0-5, TỔNG 1-6, TỔNG 2-7, TỔNG 3-8, TỔNG 4-9) -->
-    <div class="card-panel" style="margin-top:14px;">
-      <div class="card-header">
-        <span>8. CẶP TỔNG 20 SỐ: TỔNG 0-5, TỔNG 1-6, TỔNG 2-7, TỔNG 3-8, TỔNG 4-9</span>
-        <span style="font-size:11px; font-weight:normal;">Mỗi dàn gồm 20 số thuộc cặp tổng (+5) — Tự đếm ngày chưa ra &amp; gan cực đại lịch sử</span>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="stat-table" id="tbl-cap-tong-20s"></table>
-      </div>
-    </div>
-
     <div class="page-footer-nav">
       <a href="tuan.html" class="q-btn">← Quay lại Trang 1: GĐB Theo Tuần</a>
       <a href="bang35.html" class="q-btn">Tiếp theo: Trang 3 - Bảng 35 Cột (Theo Tổng) →</a>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20261125"></script>
   <script>
 
     function showMatrixDanNums(idx) {
@@ -271,21 +258,51 @@
       renderPage();
     }
 
-    function renderMoneyCalc() {
-      const soCon = parseFloat(document.getElementById("calc-so").value) || 36;
-      const mucAn = parseFloat(document.getElementById("calc-an").value) || 98;
-      const donGia = parseFloat(document.getElementById("calc-gia").value) || 1;
-      const steps = [2, 4, 7, 11, 16, 22, 30];
-      let h = `<thead><tr><th>Ngày</th><th>N1</th><th>N2</th><th>N3</th><th>N4</th><th>N5</th><th>N6</th><th>N7</th></tr></thead><tbody>`;
-      h += `<tr><td><b>Điểm/con</b></td>${steps.map(s => `<td><b>${s * donGia}</b></td>`).join("")}</tr>`;
-      let cumCost = 0; const costs = [], profits = [];
-      steps.forEach(s => {
-        const pt = s * donGia; cumCost += pt * soCon;
-        costs.push(Math.round(cumCost)); profits.push(Math.round(pt * mucAn - cumCost));
+    function renderCapTong20SoTable(histGDB) {
+      const ct20Tbl = document.getElementById("tbl-cap-tong-20s");
+      if (!ct20Tbl || !histGDB) return;
+      const ct20List = typeof getCapTong20SoConfigs === "function" ? getCapTong20SoConfigs() : [];
+      let hCt20 = `<thead><tr>
+        <th>STT</th>
+        <th>Tên Dàn Cặp Tổng (Bấm xem 20 số)</th>
+        <th>Số con</th>
+        <th>Ngày về gần nhất</th>
+        <th>Ngày chưa ra</th>
+        <th>Gan cực đại</th>
+        <th>Trạng thái</th>
+      </tr></thead><tbody>`;
+      ct20List.forEach((cfg, idx) => {
+        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
+        const lv = DAN_LEVEL[st.level] || { cls: "", badge: "st-normal", text: "Đang theo dõi" };
+        const statusTxt = st.over > 0 ? `Vượt Max (+${st.over}ng)!` : lv.text;
+        const gBadge = st.daysSince === 0
+          ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
+          : `<span class="gan-inline-badge">chưa ra ${st.daysSince} ngày</span>`;
+        hCt20 += `<tr class="${lv.cls}">
+          <td>${idx + 1}</td>
+          <td style="text-align:left;">
+            <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+              ${cfg.name} — ${gBadge} <small style="color:#0969da;">[Xem 20 số ▾]</small>
+            </div>
+            <div style="display:none; font-size:11.5px; font-family:monospace; color:#1e293b; max-width:340px; white-space:normal; margin-top:4px; background:#f8fafc; padding:5px 7px; border-radius:4px; border:1px solid #cbd5e1;">
+              <b>${cfg.nums.join(", ")}</b>
+            </div>
+          </td>
+          <td><b>20s</b></td>
+          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+          <td style="font-size:14px;"><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || ""}</span></td>
+          <td><span class="badge-status ${lv.badge}">${statusTxt}</span></td>
+        </tr>`;
       });
-      h += `<tr><td><b>Tổng gốc</b></td>${costs.map(c => `<td>${c.toLocaleString('vi-VN')}k</td>`).join("")}</tr>`;
-      h += `<tr class="bg-green"><td><b>Lãi nếu nổ</b></td>${profits.map(p => `<td>+${p.toLocaleString('vi-VN')}k</td>`).join("")}</tr></tbody>`;
-      document.getElementById("tbl-nuoi-tien").innerHTML = h;
+      ct20Tbl.innerHTML = hCt20 + `</tbody>`;
+    }
+
+    function renderMoneyCalc() {
+      if (globalData) {
+        const hist = getAllHistoricalGDB(getNormalizedWeeks(globalData.weeks_gdb));
+        renderCapTong20SoTable(hist);
+      }
       renderLichNuoi();
     }
 
@@ -607,176 +624,168 @@
       }
     }
 
-    // Patch renderPage to include section 6
+    // Patch renderPage to include sections 5b, 6, 7
     const _origRenderPage = renderPage;
     renderPage = function() {
-      _origRenderPage();
+      try {
+        _origRenderPage();
+      } catch (err) {
+        console.error("Lỗi _origRenderPage:", err);
+      }
       if (!globalData) return;
       const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
       const histGDB = getAllHistoricalGDB(allWeeks);
 
+      // Bảo đảm Bảng 4 (Cặp Tổng 0-5, 1-6, 2-7, 3-8, 4-9) luôn hiển thị
+      try {
+        renderCapTong20SoTable(histGDB);
+      } catch (err) {
+        console.error("Lỗi Bảng 4 Cặp Tổng 20 số:", err);
+      }
+
       // 5b. Bảng đếm cầu kép hôm sau (ĐB abcde -> hôm sau đề về dd hoặc ee)
-      const kepDD = computeNextDayKepDDEE(histGDB);
-      const badgeEl = document.getElementById("dn-kep-ddee-badge");
-      if (badgeEl) {
-        badgeEl.textContent = `Chưa về: ${kepDD.daysSince} ngày | Gan nhất: ${kepDD.maxInclHit} ngày`;
-      }
-      const sumEl = document.getElementById("dn-kep-ddee-summary");
-      if (sumEl) {
-        sumEl.innerHTML = `<b>Quy tắc:</b> GĐB hôm nay <b>abcde</b> → hôm sau Đề về <b>dd</b> hoặc <b>ee</b> (trúng tô xanh và reset về 0; không về đếm cộng dồn 1, 2, 3... đến hiện tại). &nbsp;|&nbsp; <b>Chưa về đến hiện tại:</b> <span style="color:#b91c1c; font-weight:900; font-size:14px;">${kepDD.daysSince} ngày</span> &nbsp;|&nbsp; <b>Số ngày gan nhất:</b> <b>${kepDD.maxInclHit} ngày</b> (${kepDD.maxSpan}) &nbsp;|&nbsp; <b>Về gần nhất:</b> ${kepDD.lastHitDate} (<b>${kepDD.lastHitDe}</b>, ${kepDD.lastHitPrevInfo}) &nbsp;|&nbsp; <b>Cặp kép hôm nay (${kepDD.latestDate} - ĐB ${kepDD.latestDb}):</b> <span style="color:#b80000; font-weight:900;">${kepDD.latestTargets.join(", ")}</span>`;
-      }
-      const dispRows = kepDD.rows.slice(-60).reverse();
-      let hKep = `<thead><tr>
-        <th>Ngày gốc</th>
-        <th>GĐB (abcde)</th>
-        <th>Cặp kép hôm sau (dd / ee)</th>
-        <th>Ngày hôm sau</th>
-        <th>GĐB hôm sau (Đề)</th>
-        <th>Đếm số ngày chưa về</th>
-      </tr></thead><tbody>`;
-      dispRows.forEach(r => {
-        if (r.pending) {
-          hKep += `<tr class="bg-yellow">
-            <td><b>${r.date}</b></td>
-            <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
-            <td><b>${r.targets.join(", ")}</b></td>
-            <td colspan="2"><i>Đang chờ kết quả ngày kế tiếp</i></td>
-            <td><b>Đang đếm: ${r.streakAfter} ngày</b></td>
-          </tr>`;
-        } else if (r.hit) {
-          hKep += `<tr class="bg-green">
-            <td><b>${r.date}</b></td>
-            <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
-            <td><b>${r.targets.join(", ")}</b></td>
-            <td>${r.nextDate}</td>
-            <td>${r.nextDb.slice(0,3)}<span class="de-gray-pill">${r.nextDe}</span></td>
-            <td><b>✓ Về (${r.nextDe}) — Reset 0 ngày</b></td>
-          </tr>`;
-        } else {
-          const warnCls = r.streakAfter >= 15 ? 'style="background:#fef08a; color:#991b1b; font-weight:800;"' : '';
-          hKep += `<tr>
-            <td><b>${r.date}</b></td>
-            <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
-            <td><b>${r.targets.join(", ")}</b></td>
-            <td>${r.nextDate}</td>
-            <td>${r.nextDb.slice(0,3)}<span class="de-gray-pill">${r.nextDe}</span></td>
-            <td ${warnCls}>Chưa về — <b>${r.streakAfter} ngày</b></td>
-          </tr>`;
+      try {
+        const kepDD = computeNextDayKepDDEE(histGDB);
+        const badgeEl = document.getElementById("dn-kep-ddee-badge");
+        if (badgeEl) {
+          badgeEl.textContent = `Chưa về: ${kepDD.daysSince} ngày | Gan nhất: ${kepDD.maxInclHit} ngày`;
         }
-      });
-      document.getElementById("tbl-kep-ddee").innerHTML = hKep + `</tbody>`;
+        const sumEl = document.getElementById("dn-kep-ddee-summary");
+        if (sumEl) {
+          sumEl.innerHTML = `<b>Quy tắc:</b> GĐB hôm nay <b>abcde</b> → hôm sau Đề về <b>dd</b> hoặc <b>ee</b> (trúng tô xanh và reset về 0; không về đếm cộng dồn 1, 2, 3... đến hiện tại). &nbsp;|&nbsp; <b>Chưa về đến hiện tại:</b> <span style="color:#b91c1c; font-weight:900; font-size:14px;">${kepDD.daysSince} ngày</span> &nbsp;|&nbsp; <b>Số ngày gan nhất:</b> <b>${kepDD.maxInclHit} ngày</b> (${kepDD.maxSpan}) &nbsp;|&nbsp; <b>Về gần nhất:</b> ${kepDD.lastHitDate} (<b>${kepDD.lastHitDe}</b>, ${kepDD.lastHitPrevInfo}) &nbsp;|&nbsp; <b>Cặp kép hôm nay (${kepDD.latestDate} - ĐB ${kepDD.latestDb}):</b> <span style="color:#b80000; font-weight:900;">${kepDD.latestTargets.join(", ")}</span>`;
+        }
+        const dispRows = kepDD.rows.slice(-60).reverse();
+        let hKep = `<thead><tr>
+          <th>Ngày gốc</th>
+          <th>GĐB (abcde)</th>
+          <th>Cặp kép hôm sau (dd / ee)</th>
+          <th>Ngày hôm sau</th>
+          <th>GĐB hôm sau (Đề)</th>
+          <th>Đếm số ngày chưa về</th>
+        </tr></thead><tbody>`;
+        dispRows.forEach(r => {
+          if (r.pending) {
+            hKep += `<tr class="bg-yellow">
+              <td><b>${r.date}</b></td>
+              <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
+              <td><b>${r.targets.join(", ")}</b></td>
+              <td colspan="2"><i>Đang chờ kết quả ngày kế tiếp</i></td>
+              <td><b>Đang đếm: ${r.streakAfter} ngày</b></td>
+            </tr>`;
+          } else if (r.hit) {
+            hKep += `<tr class="bg-green">
+              <td><b>${r.date}</b></td>
+              <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
+              <td><b>${r.targets.join(", ")}</b></td>
+              <td>${r.nextDate}</td>
+              <td>${r.nextDb.slice(0,3)}<span class="de-gray-pill">${r.nextDe}</span></td>
+              <td><b>✓ Về (${r.nextDe}) — Reset 0 ngày</b></td>
+            </tr>`;
+          } else {
+            const warnCls = r.streakAfter >= 15 ? 'style="background:#fef08a; color:#991b1b; font-weight:800;"' : '';
+            hKep += `<tr>
+              <td><b>${r.date}</b></td>
+              <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
+              <td><b>${r.targets.join(", ")}</b></td>
+              <td>${r.nextDate}</td>
+              <td>${r.nextDb.slice(0,3)}<span class="de-gray-pill">${r.nextDe}</span></td>
+              <td ${warnCls}>Chưa về — <b>${r.streakAfter} ngày</b></td>
+            </tr>`;
+          }
+        });
+        const tblKep = document.getElementById("tbl-kep-ddee");
+        if (tblKep) tblKep.innerHTML = hKep + `</tbody>`;
+      } catch (err) {
+        console.error("Lỗi Bảng 5b:", err);
+      }
 
       // 6. Render bảng các dàn bổ sung (đã loại bỏ hoàn toàn dàn trùng)
-      const f3ListAll = getImageF3F9A1Configs().map(cfg => {
-        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
-        return { ...cfg, st };
-      });
-      const dupBadgeEl = document.getElementById("dup-summary-badge");
-      if (dupBadgeEl) {
-        dupBadgeEl.innerText = `✓ ${f3ListAll.length} dàn riêng biệt (0 dàn trùng)`;
+      try {
+        const f3ListAll = getImageF3F9A1Configs().map(cfg => {
+          const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
+          return { ...cfg, st };
+        });
+        const dupBadgeEl = document.getElementById("dup-summary-badge");
+        if (dupBadgeEl) {
+          dupBadgeEl.innerText = `✓ ${f3ListAll.length} dàn riêng biệt (0 dàn trùng)`;
+        }
+
+        const f3List = f3ListAll.filter(x => {
+          if (f3f9FilterMode === 'gan_watch') return x.st.level === 'watch' || x.st.level === 'max';
+          return true;
+        });
+
+        let hF3 = `<thead><tr>
+          <th>STT</th>
+          <th>Tên Dàn (Kèm số ngày chưa về)</th>
+          <th>Các số trong dàn</th>
+          <th>Số con</th>
+          <th>Ngày về gần nhất</th>
+          <th>Gan (ngày chưa về)</th>
+          <th>Số ngày gan nhất</th>
+          <th>Trạng thái</th>
+        </tr></thead><tbody>`;
+
+        f3List.forEach((cfg, idx) => {
+          const st = cfg.st;
+          const lv = DAN_LEVEL[st.level] || { cls: "", badge: "st-normal", text: "Đang theo dõi" };
+          const statusTxt = st.over > 0 ? `Vượt Max (+${st.over}ng)!` : lv.text;
+
+          const gBadge = st.daysSince === 0
+            ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
+            : `<span class="gan-inline-badge">chưa về ${st.daysSince} ngày</span>`;
+
+          hF3 += `<tr class="${lv.cls}">
+            <td>${idx + 1}</td>
+            <td style="text-align:left;">
+              <div style="font-weight:700; color:#14365d;">${cfg.name.replace(/\s*-\s*Ảnh/gi, '')} — ${gBadge}</div>
+              <span class="de-sub">${cfg.subGroup}</span>
+            </td>
+            <td style="text-align:left;">${renderDanNumsPreview(cfg.nums, 8)}</td>
+            <td><b>${cfg.nums.length}s</b></td>
+            <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+            <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+            <td><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
+            <td><span class="badge-status ${lv.badge}">${statusTxt}</span></td>
+          </tr>`;
+        });
+        const tblF3 = document.getElementById("tbl-f3f9-dans");
+        if (tblF3) tblF3.innerHTML = hF3 + `</tbody>`;
+      } catch (err) {
+        console.error("Lỗi Bảng 6:", err);
       }
 
-      const f3List = f3ListAll.filter(x => {
-        if (f3f9FilterMode === 'gan_watch') return x.st.level === 'watch' || x.st.level === 'max';
-        return true;
-      });
-
-      let hF3 = `<thead><tr>
-        <th>STT</th>
-        <th>Tên Dàn (Kèm số ngày chưa về)</th>
-        <th>Các số trong dàn</th>
-        <th>Số con</th>
-        <th>Ngày về gần nhất</th>
-        <th>Gan (ngày chưa về)</th>
-        <th>Số ngày gan nhất</th>
-        <th>Trạng thái</th>
-      </tr></thead><tbody>`;
-
-      f3List.forEach((cfg, idx) => {
-        const st = cfg.st;
-        const lv = DAN_LEVEL[st.level];
-        const statusTxt = st.over > 0 ? `Vượt Max (+${st.over}ng)!` : lv.text;
-
-        const gBadge = st.daysSince === 0
-          ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
-          : `<span class="gan-inline-badge">chưa về ${st.daysSince} ngày</span>`;
-
-        hF3 += `<tr class="${lv.cls}">
-          <td>${idx + 1}</td>
-          <td style="text-align:left;">
-            <div style="font-weight:700; color:#14365d;">${cfg.name.replace(/\s*-\s*Ảnh/gi, '')} — ${gBadge}</div>
-            <span class="de-sub">${cfg.subGroup}</span>
-          </td>
-          <td style="text-align:left;">${renderDanNumsPreview(cfg.nums, 8)}</td>
-          <td><b>${cfg.nums.length}s</b></td>
-          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
-          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
-          <td><span class="badge-status ${lv.badge}">${statusTxt}</span></td>
-        </tr>`;
-      });
-      document.getElementById("tbl-f3f9-dans").innerHTML = hF3 + `</tbody>`;
-
       // 7. Render 5 bộ số 4 số (00, 11, 22, 33, 44)
-      const bkList = getBoKep4SoConfigs();
-      let hBk = `<thead><tr>
-        <th>STT</th>
-        <th>Bộ Số (Kèm số ngày gan)</th>
-        <th>4 Số Trong Bộ</th>
-        <th>Ngày về gần nhất</th>
-        <th>Số ngày chưa về</th>
-        <th>Số ngày gan nhất</th>
-      </tr></thead><tbody>`;
-      bkList.forEach((cfg, idx) => {
-        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
-        const cls = DAN_LEVEL[st.level].cls;
-        const gBadge = st.daysSince === 0
-          ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
-          : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
-        hBk += `<tr class="${cls}">
-          <td>${idx + 1}</td>
-          <td style="text-align:left;"><b>${cfg.name}</b> — ${gBadge}</td>
-          <td><b>${cfg.nums.join(", ")}</b></td>
-          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
-          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
-        </tr>`;
-      });
-      const bkTbl = document.getElementById("tbl-bo-kep-4s");
-      if (bkTbl) bkTbl.innerHTML = hBk + `</tbody>`;
-
-      // 8. Render 5 dàn cặp tổng 20 số (Tổng 0-5, 1-6, 2-7, 3-8, 4-9)
-      const ct20List = getCapTong20SoConfigs();
-      let hCt20 = `<thead><tr>
-        <th>STT</th>
-        <th>Tên Dàn Cặp Tổng</th>
-        <th>Các Số Trong Dàn (20 số)</th>
-        <th>Ngày Về Gần Nhất</th>
-        <th>Ngày Chưa Ra</th>
-        <th>Gan Cực Đại</th>
-        <th>Trạng Thái</th>
-      </tr></thead><tbody>`;
-      ct20List.forEach((cfg, idx) => {
-        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
-        const lv = DAN_LEVEL[st.level];
-        const statusTxt = st.over > 0 ? `Vượt Max (+${st.over}ng)!` : lv.text;
-        const gBadge = st.daysSince === 0
-          ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
-          : `<span class="gan-inline-badge">chưa ra ${st.daysSince} ngày</span>`;
-        hCt20 += `<tr class="${lv.cls}">
-          <td>${idx + 1}</td>
-          <td style="text-align:left;"><b>${cfg.name}</b> — ${gBadge}</td>
-          <td style="text-align:left; font-family:monospace; font-size:11.5px; white-space:normal; max-width:420px;"><b>${cfg.nums.join(", ")}</b></td>
-          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
-          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td style="font-size:14px;"><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || ""}</span></td>
-          <td><span class="badge-status ${lv.badge}">${statusTxt}</span></td>
-        </tr>`;
-      });
-      const ct20Tbl = document.getElementById("tbl-cap-tong-20s");
-      if (ct20Tbl) ct20Tbl.innerHTML = hCt20 + `</tbody>`;
-
-
+      try {
+        const bkList = getBoKep4SoConfigs();
+        let hBk = `<thead><tr>
+          <th>STT</th>
+          <th>Bộ Số (Kèm số ngày gan)</th>
+          <th>4 Số Trong Bộ</th>
+          <th>Ngày về gần nhất</th>
+          <th>Số ngày chưa về</th>
+          <th>Số ngày gan nhất</th>
+        </tr></thead><tbody>`;
+        bkList.forEach((cfg, idx) => {
+          const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
+          const cls = (DAN_LEVEL[st.level] || { cls: "" }).cls;
+          const gBadge = st.daysSince === 0
+            ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
+            : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
+          hBk += `<tr class="${cls}">
+            <td>${idx + 1}</td>
+            <td style="text-align:left;"><b>${cfg.name}</b> — ${gBadge}</td>
+            <td><b>${cfg.nums.join(", ")}</b></td>
+            <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+            <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+            <td><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
+          </tr>`;
+        });
+        const bkTbl = document.getElementById("tbl-bo-kep-4s");
+        if (bkTbl) bkTbl.innerHTML = hBk + `</tbody>`;
+      } catch (err) {
+        console.error("Lỗi Bảng 7:", err);
+      }
     };
     loadSharedData(renderPage);
   </script>
