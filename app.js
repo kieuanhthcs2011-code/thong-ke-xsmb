@@ -296,6 +296,53 @@ function saveCustomDans(list) {
   localStorage.setItem("thongke_custom_dans", JSON.stringify(list));
 }
 
+
+function computeMketquaCycle(histGDB, nums) {
+  const targetSet = new Set(nums);
+  let curMiss = 0;
+  let streakStartDate = histGDB.length ? histGDB[0].date : "";
+  let seenFirstHit = false;
+  let maxInclHit = 0;
+  let maxInclSpan = "Chưa đủ 2 lần về";
+  let maxPureGap = 0;
+  let lastHitDate = "Chưa thấy";
+  let lastHitDe = "--";
+  let lastHitDb = "";
+
+  for (let i = 0; i < histGDB.length; i++) {
+    const it = histGDB[i];
+    if (!it || !it.de || !/^\d{2}$/.test(it.de)) continue;
+    if (targetSet.has(it.de)) {
+      if (seenFirstHit) {
+        if (curMiss > maxPureGap) maxPureGap = curMiss;
+        const inclCount = curMiss + 1;
+        if (inclCount >= maxInclHit) {
+          maxInclHit = inclCount;
+          maxInclSpan = `${streakStartDate} → ${it.date} (về ${it.de})`;
+        }
+      }
+      seenFirstHit = true;
+      curMiss = 0;
+      streakStartDate = it.date;
+      lastHitDate = it.date;
+      lastHitDe = it.de;
+      lastHitDb = it.db || "";
+    } else {
+      curMiss++;
+    }
+  }
+
+  return {
+    daysSince: curMiss,
+    maxInclHit,
+    maxInclSpan,
+    maxPureGap,
+    lastHitDate,
+    lastHitDe,
+    lastHitDb
+  };
+}
+
 function analyzeDanCyclesInRange(histGDB, nums, fromDateISO, toDateISO) {
   const targetSet = new Set(nums);
   const fromDt = fromDateISO ? new Date(fromDateISO + "T00:00:00") : null;
@@ -366,17 +413,21 @@ function analyzeDanCyclesInRange(histGDB, nums, fromDateISO, toDateISO) {
 
 function evaluateDan(histGDB, nums, referenceMax) {
   const st = computeDanStats(histGDB, new Set(nums));
+  const mk = computeMketquaCycle(histGDB, nums);
   const ref = Number(referenceMax) || 0;
-  // Tính Max thực tế từ lịch sử các chu kỳ đã về; nếu chưa đủ chu kỳ đóng thì lấy Max chuẩn tham chiếu
-  const realMax = st.maxObserved > 0 ? st.maxObserved : ref;
+  // Áp dụng chuẩn chu kỳ (kể cả ngày về: curMiss + 1) cho toàn bộ các dàn trên web
+  const realMax = mk.maxInclHit > 0 ? mk.maxInclHit : (st.maxObserved > 0 ? st.maxObserved : ref);
   const effMax = realMax;
-  const gan = st.daysSince;
+  const maxSpan = mk.maxInclHit > 0 ? mk.maxInclSpan : (st.maxSpan || "");
+  const gan = mk.daysSince;
   let level = "normal";
   if (gan === 0) level = "hit";
   else if (realMax > 0 && gan >= realMax) level = "max";
   else if (realMax > 0 && gan >= Math.floor(realMax * WATCH_RATIO)) level = "watch";
   return {
     ...st,
+    ...mk,
+    maxSpan,
     gan,
     ref,
     realMax,
@@ -433,65 +484,50 @@ function getDanConfigs() {
   const danDau = ["09","21","33","45","57","69","81","93"];
   const danTy  = ["00","12","24","36","48","60","72","84","96"];
   const danTi  = ["05","17","29","41","53","65","77","89"];
-  const kep2   = ["00","11","22","33","44","55","66","77","88","99","05","50","16","61","27","72","38","83","49","94"];
-
-  // Tổng đề dùng cho lịch nuôi theo ngày trong tháng (từ ảnh)
-  const all100 = Array.from({ length: 100 }, (_, i) => String(i).padStart(2, '0'));
-  const tong38 = all100.filter(s => ((+s[0] + +s[1]) % 10) === 3 || ((+s[0] + +s[1]) % 10) === 8);
-  const tong49 = all100.filter(s => ((+s[0] + +s[1]) % 10) === 4 || ((+s[0] + +s[1]) % 10) === 9);
-  const tong16 = all100.filter(s => ((+s[0] + +s[1]) % 10) === 1 || ((+s[0] + +s[1]) % 10) === 6);
 
   return [
-    // ==================== NHÓM 1: DÀN TRONG ẢNH (NUÔI THÁNG, CON GIÁP LẺ & 65 SỐ) ====================
-    { group: "Dàn trong ảnh", short: "65 số", name: "Dàn 65 số cố định", count: 65, excelMax: 12, nums: dan65 },
-    { group: "Dàn trong ảnh", short: "T3-8 (4→10)", name: "Mùng 4 nổ 44 nuôi Tổng 3-8 (từ 4→10)", count: 36, excelMax: 17, nums: tong38 },
-    { group: "Dàn trong ảnh", short: "T4-9 (8→14)", name: "Từ ngày 8–14 nuôi Tổng 4-9", count: 36, excelMax: 17, nums: tong49 },
-    { group: "Dàn trong ảnh", short: "2 Kép (15→22)", name: "Từ ngày 15–22 nuôi 2 Kép", count: 20, excelMax: 20, nums: kep2 },
-    { group: "Dàn trong ảnh", short: "T1-6 (26→hết)", name: "Từ ngày 26–hết tháng nuôi Tổng 1-6", count: 36, excelMax: 18, nums: tong16 },
-    { group: "Dàn trong ảnh", short: "Dần (9s)", name: "Con giáp: Dần (9s)", count: 9, excelMax: 45, nums: danDan },
-    { group: "Dàn trong ảnh", short: "Dậu (8s)", name: "Con giáp: Dậu (8s)", count: 8, excelMax: 50, nums: danDau },
-    { group: "Dàn trong ảnh", short: "Tý (9s)", name: "Con giáp: Tý (9s)", count: 9, excelMax: 45, nums: danTy },
-    { group: "Dàn trong ảnh", short: "Tị (8s)", name: "Con giáp: Tị (8s)", count: 8, excelMax: 50, nums: danTi },
-
-    // ==================== NHÓM 2: TOÀN BỘ 22 DÀN TỪ CHÚ THÍCH (COMMENT) CỘT T ====================
-    { group: "Chú thích Cột T", short: "T3: 24s", name: "Cột T3 (24s - Chú thích)", count: 24, excelMax: 35, nums: ["12","21","18","81","23","32","27","72","28","82","29","92","37","73","38","83","39","93","78","87","79","97","89","98"] },
-    { group: "Chú thích Cột T", short: "T5: 26s", name: "Cột T5 (26s - Chú thích)", count: 26, excelMax: 21, nums: ["00","02","09","12","14","17","24","26","33","36","38","45","48","50","57","60","62","65","72","77","81","84","86","93","96","98"] },
-    { group: "Chú thích Cột T", short: "T7: 34s Giáp", name: "Cột T7: Dần Dậu Tí Tỵ (34s)", count: 34, excelMax: 20, nums: ["00","02","05","09","12","14","17","21","24","26","29","33","36","38","41","45","48","50","53","57","60","62","65","69","72","74","77","81","84","86","89","93","96","98"] },
-    { group: "Chú thích Cột T", short: "T10: Hiệu 0,1", name: "Cột T10: Hiệu=0,=1 (30s)", count: 30, excelMax: 20, nums: ["00","11","22","33","44","55","66","77","88","99","01","10","12","21","23","32","34","43","45","54","56","65","67","76","78","87","89","98","09","90"] },
-    { group: "Chú thích Cột T", short: "T12: /3", name: "Cột T12: Chia hết cho 3 (34s)", count: 34, excelMax: 19, nums: ["00","03","06","09","12","15","18","21","24","27","30","33","36","39","42","45","48","51","54","57","60","63","66","69","72","75","78","81","84","87","90","93","96","99"] },
-    { group: "Chú thích Cột T", short: "T14: /3=2", name: "Cột T14: Chia 3 dư 2 (33s)", count: 33, excelMax: 27, nums: ["02","05","08","11","14","17","20","23","26","29","32","35","38","41","44","47","50","53","56","59","62","65","68","71","74","77","80","83","86","89","92","95","98"] },
-    { group: "Chú thích Cột T", short: "T16: /3=1", name: "Cột T16: Chia 3 dư 1 (33s)", count: 33, excelMax: 22, nums: ["01","04","07","10","13","16","19","22","25","28","31","34","37","40","43","46","49","52","55","58","61","64","67","70","73","76","79","82","85","88","91","94","97"] },
-    { group: "Chú thích Cột T", short: "T18: Dàn 0-5", name: "Cột T18: Dàn từ 0-5 (36s - Ghép chữ số 0..5)", count: 36, excelMax: 21, nums: ["00","01","02","03","04","05","10","11","12","13","14","15","20","21","22","23","24","25","30","31","32","33","34","35","40","41","42","43","44","45","50","51","52","53","54","55"] },
-    { group: "Chú thích Cột T", short: "T20: Dàn 1-6", name: "Cột T20: Dàn từ 1-6 (36s - Ghép chữ số 1..6)", count: 36, excelMax: 18, nums: ["11","12","13","14","15","16","21","22","23","24","25","26","31","32","33","34","35","36","41","42","43","44","45","46","51","52","53","54","55","56","61","62","63","64","65","66"] },
-    { group: "Chú thích Cột T", short: "T22: Dàn 2-7", name: "Cột T22: Dàn từ 2-7 (36s - Ghép chữ số 2..7)", count: 36, excelMax: 21, nums: ["22","23","24","25","26","27","32","33","34","35","36","37","42","43","44","45","46","47","52","53","54","55","56","57","62","63","64","65","66","67","72","73","74","75","76","77"] },
-    { group: "Chú thích Cột T", short: "T24: Dàn 3-8", name: "Cột T24: Dàn từ 3-8 (36s - Ghép chữ số 3..8)", count: 36, excelMax: 17, nums: ["33","34","35","36","37","38","43","44","45","46","47","48","53","54","55","56","57","58","63","64","65","66","67","68","73","74","75","76","77","78","83","84","85","86","87","88"] },
-    { group: "Chú thích Cột T", short: "T25: Dàn 4-9", name: "Cột T25: Dàn từ 4-9 (36s - Ghép chữ số 4..9)", count: 36, excelMax: 17, nums: ["44","45","46","47","48","49","54","55","56","57","58","59","64","65","66","67","68","69","74","75","76","77","78","79","84","85","86","87","88","89","94","95","96","97","98","99"] },
-    { group: "Chú thích Cột T", short: "T27: Chẵn Chẵn", name: "Cột T27: Chẵn Chẵn (25s)", count: 25, excelMax: 36, nums: ["00","22","44","66","88","02","20","04","40","06","60","08","80","24","42","26","62","28","82","46","64","48","84","68","86"] },
-    { group: "Chú thích Cột T", short: "T29: Lẻ Lẻ", name: "Cột T29: Lẻ Lẻ (25s)", count: 25, excelMax: 31, nums: ["11","33","55","77","99","13","31","15","51","17","71","19","91","35","53","37","73","39","93","57","75","59","95","79","97"] },
-    { group: "Chú thích Cột T", short: "T31: Chẵn Lẻ", name: "Cột T31: Chẵn Lẻ (25s)", count: 25, excelMax: 32, nums: ["01","03","05","07","09","21","23","25","27","29","41","43","45","47","49","61","63","65","67","69","81","83","85","87","89"] },
-    { group: "Chú thích Cột T", short: "T33: Lẻ Chẵn", name: "Cột T33: Lẻ Chẵn (25s)", count: 25, excelMax: 30, nums: ["10","12","14","16","18","30","32","34","36","38","50","52","54","56","58","70","72","74","76","78","90","92","94","96","98"] },
-    { group: "Chú thích Cột T", short: "T35: Nhỏ Nhỏ", name: "Cột T35: Nhỏ Nhỏ (25s)", count: 25, excelMax: 26, nums: ["00","11","22","33","44","01","10","02","20","03","30","04","40","12","21","13","31","14","41","23","32","24","42","34","43"] },
-    { group: "Chú thích Cột T", short: "T37: To To", name: "Cột T37: To To (25s)", count: 25, excelMax: 26, nums: ["55","66","77","88","99","56","65","57","75","58","85","59","95","67","76","68","86","69","96","78","87","79","97","89","98"] },
-    { group: "Chú thích Cột T", short: "T39: Nhỏ To", name: "Cột T39: Nhỏ To (25s)", count: 25, excelMax: 26, nums: ["05","06","07","08","09","15","16","17","18","19","25","26","27","28","29","35","36","37","38","39","45","46","47","48","49"] },
-    { group: "Chú thích Cột T", short: "T41: To Nhỏ", name: "Cột T41: To Nhỏ (25s)", count: 25, excelMax: 26, nums: ["90","91","92","93","94","80","81","82","83","84","70","71","72","73","74","60","61","62","63","64","50","51","52","53","54"] },
-    { group: "Chú thích Cột T", short: "T43: Dàn 50s", name: "Cột T43: Dàn 50 số (Chú thích)", count: 50, excelMax: 15, nums: ["50","01","02","03","05","08","10","11","14","15","16","17","18","19","21","22","24","28","29","30","31","32","33","35","38","40","41","44","45","48","53","55","58","59","65","67","69","70","71","75","79","80","83","84","88","89","91","92","93","94"] },
-    { group: "Chú thích Cột T", short: "T44: Dàn 44s", name: "Cột T44: Dàn 44 số (Chú thích)", count: 44, excelMax: 16, nums: ["02","05","08","10","11","14","15","16","17","21","22","24","29","30","31","32","33","35","40","41","43","44","45","48","49","50","53","59","63","65","67","68","75","77","79","80","88","89","90","91","92","93","97","99"] }
+    { group: "Dàn trong ảnh", short: "65 số", name: "Dàn 65 số cố định", count: 65, nums: dan65, excelMax: 12 },
+    { group: "Dàn trong ảnh", short: "Dần (9s)", name: "Con giáp: Dần (9s)", count: danDan.length, nums: danDan, excelMax: 45 },
+    { group: "Dàn trong ảnh", short: "Dậu (8s)", name: "Con giáp: Dậu (8s)", count: danDau.length, nums: danDau, excelMax: 50 },
+    { group: "Dàn trong ảnh", short: "Tý (9s)", name: "Con giáp: Tý (9s)", count: danTy.length, nums: danTy, excelMax: 45 },
+    { group: "Dàn trong ảnh", short: "Tị (8s)", name: "Con giáp: Tị (8s)", count: danTi.length, nums: danTi, excelMax: 50 },
+    { group: "Chú thích Cột T", short: "T3 (24s)", name: "Cột T3 (24s - Chú thích)", count: 24, nums: ["12","21","18","81","23","32","27","72","28","82","29","92","37","73","38","83","39","93","78","87","79","97","89","98"], excelMax: 35 },
+    { group: "Chú thích Cột T", short: "T5 (26s)", name: "Cột T5 (26s - Chú thích)", count: 26, nums: ["00","02","09","12","14","17","24","26","33","36","38","45","48","50","57","60","62","65","72","77","81","84","86","93","96","98"], excelMax: 21 },
+    { group: "Chú thích Cột T", short: "T7 (34s)", name: "Cột T7: Dần Dậu Tí Tỵ (34s - Chú thích)", count: 34, nums: ["00","02","05","09","12","14","17","21","24","26","29","33","36","38","41","45","48","50","53","57","60","62","65","69","72","74","77","81","84","86","89","93","96","98"], excelMax: 20 },
+    { group: "Chú thích Cột T", short: "T10 (30s)", name: "Cột T10: Hiệu=0,=1 (30s - Chú thích)", count: 30, nums: ["00","11","22","33","44","55","66","77","88","99","01","10","12","21","23","32","34","43","45","54","56","65","67","76","78","87","89","98","09","90"], excelMax: 20 },
+    { group: "Chú thích Cột T", short: "T12 (34s)", name: "Cột T12: Chia hết cho 3 (34s - Chú thích)", count: 34, nums: ["00","03","06","09","12","15","18","21","24","27","30","33","36","39","42","45","48","51","54","57","60","63","66","69","72","75","78","81","84","87","90","93","96","99"], excelMax: 19 },
+    { group: "Chú thích Cột T", short: "T14 (33s)", name: "Cột T14: Chia 3 dư 2 (33s - Chú thích)", count: 33, nums: ["02","05","08","11","14","17","20","23","26","29","32","35","38","41","44","47","50","53","56","59","62","65","68","71","74","77","80","83","86","89","92","95","98"], excelMax: 27 },
+    { group: "Chú thích Cột T", short: "T16 (33s)", name: "Cột T16: Chia 3 dư 1 (33s - Chú thích)", count: 33, nums: ["01","04","07","10","13","16","19","22","25","28","31","34","37","40","43","46","49","52","55","58","61","64","67","70","73","76","79","82","85","88","91","94","97"], excelMax: 22 },
+    { group: "Chú thích Cột T", short: "T18 (36s)", name: "Cột T18: Dàn từ 0-5 (36s - Ghép chữ số 0..5)", count: 36, nums: ["00","01","02","03","04","05","10","11","12","13","14","15","20","21","22","23","24","25","30","31","32","33","34","35","40","41","42","43","44","45","50","51","52","53","54","55"], excelMax: 21 },
+    { group: "Chú thích Cột T", short: "T20 (36s)", name: "Cột T20: Dàn từ 1-6 (36s - Ghép chữ số 1..6)", count: 36, nums: ["11","12","13","14","15","16","21","22","23","24","25","26","31","32","33","34","35","36","41","42","43","44","45","46","51","52","53","54","55","56","61","62","63","64","65","66"], excelMax: 18 },
+    { group: "Chú thích Cột T", short: "T22 (36s)", name: "Cột T22: Dàn từ 2-7 (36s - Ghép chữ số 2..7)", count: 36, nums: ["22","23","24","25","26","27","32","33","34","35","36","37","42","43","44","45","46","47","52","53","54","55","56","57","62","63","64","65","66","67","72","73","74","75","76","77"], excelMax: 21 },
+    { group: "Chú thích Cột T", short: "T24 (36s)", name: "Cột T24: Dàn từ 3-8 (36s - Ghép chữ số 3..8)", count: 36, nums: ["33","34","35","36","37","38","43","44","45","46","47","48","53","54","55","56","57","58","63","64","65","66","67","68","73","74","75","76","77","78","83","84","85","86","87","88"], excelMax: 17 },
+    { group: "Chú thích Cột T", short: "T25 (36s)", name: "Cột T25: Dàn từ 4-9 (36s - Ghép chữ số 4..9)", count: 36, nums: ["44","45","46","47","48","49","54","55","56","57","58","59","64","65","66","67","68","69","74","75","76","77","78","79","84","85","86","87","88","89","94","95","96","97","98","99"], excelMax: 17 },
+    { group: "Chú thích Cột T", short: "T27 (25s)", name: "Cột T27: Chẵn Chẵn (25s - Chú thích)", count: 25, nums: ["00","22","44","66","88","02","20","04","40","06","60","08","80","24","42","26","62","28","82","46","64","48","84","68","86"], excelMax: 36 },
+    { group: "Chú thích Cột T", short: "T29 (25s)", name: "Cột T29: Lẻ Lẻ (25s - Chú thích)", count: 25, nums: ["11","33","55","77","99","13","31","15","51","17","71","19","91","35","53","37","73","39","93","57","75","59","95","79","97"], excelMax: 31 },
+    { group: "Chú thích Cột T", short: "T31 (25s)", name: "Cột T31: Chẵn Lẻ (25s - Chú thích)", count: 25, nums: ["01","03","05","07","09","21","23","25","27","29","41","43","45","47","49","61","63","65","67","69","81","83","85","87","89"], excelMax: 32 },
+    { group: "Chú thích Cột T", short: "T33 (25s)", name: "Cột T33: Lẻ Chẵn (25s - Chú thích)", count: 25, nums: ["10","12","14","16","18","30","32","34","36","38","50","52","54","56","58","70","72","74","76","78","90","92","94","96","98"], excelMax: 30 },
+    { group: "Chú thích Cột T", short: "T35 (25s)", name: "Cột T35: Nhỏ Nhỏ (25s - Chú thích)", count: 25, nums: ["00","11","22","33","44","01","10","02","20","03","30","04","40","12","21","13","31","14","41","23","32","24","42","34","43"], excelMax: 26 },
+    { group: "Chú thích Cột T", short: "T37 (25s)", name: "Cột T37: To To (25s - Chú thích)", count: 25, nums: ["55","66","77","88","99","56","65","57","75","58","85","59","95","67","76","68","86","69","96","78","87","79","97","89","98"], excelMax: 26 },
+    { group: "Chú thích Cột T", short: "T39 (25s)", name: "Cột T39: Nhỏ To (25s - Chú thích)", count: 25, nums: ["05","06","07","08","09","15","16","17","18","19","25","26","27","28","29","35","36","37","38","39","45","46","47","48","49"], excelMax: 26 },
+    { group: "Chú thích Cột T", short: "T41 (25s)", name: "Cột T41: To Nhỏ (25s - Chú thích)", count: 25, nums: ["90","91","92","93","94","80","81","82","83","84","70","71","72","73","74","60","61","62","63","64","50","51","52","53","54"], excelMax: 26 },
+    { group: "Chú thích Cột T", short: "T43 (50s)", name: "Cột T43: Dàn 50 số (Chú thích)", count: 50, nums: ["50","01","02","03","05","08","10","11","14","15","16","17","18","19","21","22","24","28","29","30","31","32","33","35","38","40","41","44","45","48","53","55","58","59","65","67","69","70","71","75","79","80","83","84","88","89","91","92","93","94"], excelMax: 15 },
+    { group: "Chú thích Cột T", short: "T44 (44s)", name: "Cột T44: Dàn 44 số (Chú thích)", count: 44, nums: ["02","05","08","10","11","14","15","16","17","21","22","24","29","30","31","32","33","35","40","41","43","44","45","48","49","50","53","59","63","65","67","68","75","77","79","80","88","89","90","91","92","93","97","99"], excelMax: 16 }
   ];
 }
-
-
-/* Lịch nuôi theo ngày trong tháng (tab 'tính' BB–BJ): khoảng ngày -> dàn đang nuôi */
-function buildDanByTong(t) {
-  const out = [];
-  for (let i = 0; i < 100; i++) {
-    const s = String(i).padStart(2, "0");
-    if (((parseInt(s[0], 10) + parseInt(s[1], 10)) % 10) === t) out.push(s);
-  }
   return out;
 }
 
 function getLichNuoiThang(histGDB, refYear, refMonth) {
-  const byShort = {};
+  const all100 = Array.from({ length: 100 }, (_, i) => String(i).padStart(2, '0'));
+  const hasT = (s, t) => ((+s[0] + +s[1]) % 10) === t;
+  const fallbackPool = {
+    "T4-9 (8→14)": { short: "T4-9 (8→14)", name: "Từ ngày 8–14 nuôi Tổng 4-9", nums: all100.filter(s => hasT(s, 4) || hasT(s, 9)), excelMax: 17 },
+    "2 Kép (15→22)": { short: "2 Kép (15→22)", name: "Từ ngày 15–22 nuôi 2 Kép", nums: ["00","11","22","33","44","55","66","77","88","99","05","50","16","61","27","72","38","83","49","94"], excelMax: 20 },
+    "T1-6 (26→hết)": { short: "T1-6 (26→hết)", name: "Từ ngày 26–hết tháng nuôi Tổng 1-6", nums: all100.filter(s => hasT(s, 1) || hasT(s, 6)), excelMax: 18 }
+  };
+  Object.keys(fallbackPool).forEach(k => { fallbackPool[k].count = fallbackPool[k].nums.length; });
+  const byShort = { ...fallbackPool };
   getDanConfigs().forEach(c => { byShort[c.short] = c; });
 
   // Tìm GĐB ngày mùng 4 của tháng (ưu tiên tháng đang xét, nếu chưa có thì tìm mùng 4 gần nhất)
