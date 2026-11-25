@@ -28,6 +28,13 @@
   </style>
 </head>
 <body>
+  <header class="top-bar">
+    <a href="index.html" class="brand">
+      <span class="brand-logo">Thongke.web.app</span>
+      <span class="brand-title">KẾT QUẢ & THỐNG KÊ XSMB TỰ ĐỘNG</span>
+    </a>
+    <div class="status-pill" id="status-text">Đang tải dữ liệu...</div>
+  </header>
 <nav class="nav-menu">
     <a href="index.html" class="nav-link">🏠 Trang Chủ</a>
     <a href="tuan.html" class="nav-link">📅 Trang 1: GĐB Tuần</a>
@@ -41,7 +48,7 @@
   <div class="container">
     <div class="toolbar">
       <div class="legend">
-        <b>📐 TRANG 5: SHEET 1 (CHẠM & CẦU PASCAL TỰ ĐỘNG)</b>
+        <b>📐 TRANG 7: SHEET 1 (CHẠM & CẦU PASCAL TỰ ĐỘNG)</b>
         <span style="color:#555;">Tự động điền đủ các cột giải phụ & tự tô <b>vàng (#FFF200)</b> nếu số cầu không về chạm/tổng tuần kế tiếp</span>
       </div>
       <div class="controls">
@@ -49,7 +56,7 @@
           <select id="limit-select" onchange="renderPage()">
             <option value="20" selected>20 tuần gần nhất</option>
             <option value="52">52 tuần (1 năm)</option>
-            <option value="999">Toàn bộ (161 tuần)</option>
+            <option value="9999">Toàn bộ lịch sử</option>
           </select>
         </label>
         <button class="action-btn btn-excel" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
@@ -71,7 +78,7 @@
     </div>
 
     <div class="page-footer-nav">
-      <a href="dannuoi.html" class="q-btn">← Quay lại Trang 4: Dàn Nuôi & Chu Kỳ</a>
+      <a href="tinh2.html" class="q-btn">← Quay lại Trang 6: Cầu Sheet Tính</a>
       <a href="index.html" class="q-btn">Về Trang Chủ 🏠</a>
     </div>
   </div>

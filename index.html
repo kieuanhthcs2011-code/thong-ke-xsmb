@@ -30,11 +30,50 @@
       <span id="live-note">Kết quả xổ số miền Bắc tự động cập nhật hằng ngày lúc 19h00.</span>
       <div class="quick-links">
         <a href="tuan.html" class="q-btn">Trang 1: GĐB Theo Tuần →</a>
-        <a href="bang35.html" class="q-btn">Trang 2: Bảng 35 Cột →</a>
-        <a href="ghep2so.html" class="q-btn">Trang 3: Ghép 2 Số 40 Ngày →</a>
-        <a href="dannuoi.html" class="q-btn" style="background:#b80000">Trang 4: Dàn Nuôi →</a>
+        <a href="dannuoi.html" class="q-btn" style="background:#b80000">Trang 2: Dàn Nuôi →</a>
+        <a href="bang35.html" class="q-btn">Trang 3: Bảng 35 Cột →</a>
+        <a href="ghep2so.html" class="q-btn">Trang 5: Ghép 2 Số 40 Ngày →</a>
         <button class="q-btn" style="background:#1d6f42" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
       </div>
+    </div>
+
+    <div class="quick-stat-box" id="cham-tong-35-box" style="margin-bottom:14px;">
+      <div class="qs-title">⚡ CHẠM / TỔNG 35 CỘT — CÁC SỐ TỪ 3 NGÀY TRỞ LÊN CHƯA RA (ĐƯA LÊN TRANG ĐẦU)</div>
+      <div class="qs-sub" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+        <span>Tự động lọc các chữ số (0–9) xuất hiện trong Bảng 35 Cột đang <b>≥ 3 ngày chưa về Chạm hoặc Tổng</b> 2 số cuối GĐB</span>
+        <label>Ngưỡng tối thiểu:
+          <select id="g35-min-days" onchange="render35Col3Days()">
+            <option value="3" selected>Từ 3 ngày chưa ra</option>
+            <option value="4">Từ 4 ngày chưa ra</option>
+            <option value="5">Từ 5 ngày chưa ra</option>
+          </select>
+        </label>
+      </div>
+      <div class="gan-grid" id="home-35col-3d-grid"></div>
+    </div>
+
+    <div class="quick-stat-box" id="gan-lau-box">
+      <div class="qs-title">🔥 DÀN ĐANG GAN LÂU (CHƯA VỀ) — THEO DÕI & KIỂM SOÁT</div>
+      <div class="qs-sub" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+        <label>Sắp xếp:
+          <select id="gl-sort" onchange="renderGanLau()">
+            <option value="days" selected>Số ngày gan nhiều nhất</option>
+            <option value="pct">Gần/vượt Max nhất (% Max)</option>
+          </select>
+        </label>
+        <label>Hiển thị:
+          <select id="gl-top" onchange="renderGanLau()">
+            <option value="10" selected>Top 10</option>
+            <option value="20">Top 20</option>
+            <option value="0">Tất cả dàn</option>
+          </select>
+        </label>
+        <label>Nhóm:
+          <select id="gl-group" onchange="renderGanLau()"><option value="">Tất cả nhóm</option></select>
+        </label>
+        <span id="gl-summary" style="font-weight:600;"></span>
+      </div>
+      <div style="overflow-x:auto; max-height:60vh;"><table class="stat-table" id="gan-lau-table"></table></div>
     </div>
 
     <div class="home-grid">
@@ -59,6 +98,56 @@
 
   <script src="app.js"></script>
   <script>
+    let DIGIT_35_STATS = [];
+    function render35Col3Days() {
+      const minDays = parseInt(document.getElementById('g35-min-days').value, 10) || 3;
+      const list = DIGIT_35_STATS.filter(x => x.in35 && x.maxGan35 >= minDays)
+        .sort((a, b) => b.maxGan35 - a.maxGan35);
+      const box = document.getElementById('home-35col-3d-grid');
+      if (!list.length) {
+        box.innerHTML = `<span style="color:#555; padding:4px;">Hiện chưa có chữ số nào ở Bảng 35 Cột đạt mức ≥ ${minDays} ngày chưa ra Chạm hoặc Tổng.</span>`;
+        return;
+      }
+      box.innerHTML = list.map(it => {
+        const hot = it.maxGan35 >= 5;
+        const bg = hot ? '#fee2e2' : '#fff200';
+        const bd = hot ? '#ef4444' : '#d97706';
+        return `<div class="gan-chip" style="background:${bg}; border-color:${bd}; padding:6px 10px; display:flex; flex-direction:column; gap:2px; min-width:165px;">
+          <div style="display:flex; justify-content:space-between; font-weight:800; color:#b80000; font-size:13px;">
+            <span>Số 35 cột: <u>${it.digit}</u></span>
+            <span>${it.maxGan35} ngày</span>
+          </div>
+          <div style="font-size:11px; color:#1f2328;">
+            Chạm <b>${it.digit}</b>: chưa ra <b>${it.ganCham}</b>ng · Tổng <b>${it.digit}</b>: chưa ra <b>${it.ganTong}</b>ng
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    let DAN_MONITOR = [];
+    function renderGanLau() {
+      const sort = document.getElementById('gl-sort').value;
+      const top = parseInt(document.getElementById('gl-top').value, 10);
+      const grp = document.getElementById('gl-group').value;
+      let list = DAN_MONITOR.filter(d => !grp || d.group === grp);
+      list = list.slice().sort((a, b) => sort === 'pct'
+        ? (b.gan / b.effMax - a.gan / a.effMax) || (b.gan - a.gan)
+        : (b.gan - a.gan) || (b.gan / b.effMax - a.gan / a.effMax));
+      const hot = DAN_MONITOR.filter(d => d.level === 'max').length, watch = DAN_MONITOR.filter(d => d.level === 'watch').length;
+      document.getElementById('gl-summary').innerHTML =
+        `<span style="color:#b80000;">${hot} dàn chạm/vượt Max</span> · <span style="color:#a16207;">${watch} dàn sắp chạm</span> · tổng ${DAN_MONITOR.length} dàn`;
+      if (top) list = list.slice(0, top);
+      let h = `<thead><tr><th>#</th><th>Dàn</th><th>Nhóm</th><th>Số con</th><th>Gan (ngày chưa về)</th><th>Max</th><th>% Max</th><th>Về gần nhất</th><th>Trạng thái</th></tr></thead><tbody>`;
+      list.forEach((d, i) => {
+        const lv = DAN_LEVEL[d.level], pct = Math.round(d.gan / d.effMax * 100);
+        h += `<tr class="${lv.cls}"><td>${i + 1}</td><td style="text-align:left;"><b>${d.name}</b></td>
+          <td style="font-size:11px;">${d.group}</td><td>${d.nums.length}s</td>
+          <td style="font-size:15px;"><b>${d.gan}</b></td><td>${d.effMax}</td><td>${pct}%</td>
+          <td>${d.lastHitDate} (<b>${d.lastHitDe}</b>)</td>
+          <td><span class="badge-status ${lv.badge}">${lv.text}</span></td></tr>`;
+      });
+      document.getElementById('gan-lau-table').innerHTML = h + `</tbody>`;
+    }
     loadSharedData(function(data) {
       const b = data.latest_full_board;
       if (b) {
@@ -68,7 +157,7 @@
         document.getElementById('kqxs-main-table').innerHTML = `
           <thead><tr><th colspan="13" class="kqxs-head">${b.weekday} - ${b.date}</th></tr></thead>
           <tbody>
-            <tr><td class="prize-label">ĐB</td><td colspan="12" class="num-db">${b.db}</td></tr>
+            <tr><td class="prize-label">ĐB</td><td colspan="12" class="num-db">${b.db.slice(0, 3)}<span class="db-de">${b.db.slice(3)}</span></td></tr>
             <tr><td class="prize-label">Nhất</td><td colspan="12" class="num-g1">${b.g1}</td></tr>
             <tr><td class="prize-label">Nhì</td><td colspan="6" class="num-reg">${g2[0]}</td><td colspan="6" class="num-reg">${g2[1]}</td></tr>
             <tr><td rowspan="2" class="prize-label">Ba</td><td colspan="4" class="num-reg">${g3[0]}</td><td colspan="4" class="num-reg">${g3[1]}</td><td colspan="4" class="num-reg">${g3[2]}</td></tr>
@@ -98,29 +187,66 @@
         document.getElementById('kqxs-duoi-table').innerHTML = duoiHtml + `</tbody>`;
       }
 
-      // Cầu ghép gan
-      const daily = data.daily_prizes;
-      const prizeCols = ["ĐB", "G1", "G2-1", "G2-2", "G3-1", "G3-2", "G3-3", "G3-4", "G3-5", "G3-6"];
-      let streaks = Array(10).fill(0);
-      for (let i = 0; i < daily.length - 1; i++) {
-        const nextDe = daily[i + 1].prizes[0].slice(-2);
-        daily[i].prizes.forEach((p, idx) => { if (canForm2Digit(p, nextDe)) streaks[idx] = 0; else streaks[idx]++; });
+      // Tính Chạm / Tổng 35 cột >= 3 ngày chưa ra
+      const normWks35 = getNormalizedWeeks(data.weeks_gdb);
+      const histAll = getAllHistoricalGDB(normWks35);
+      const present35Digits = new Set();
+      normWks35.slice(0, 8).forEach(wk => {
+        (wk.nums || []).forEach(num => {
+          if (num) {
+            for (let k = 0; k < Math.min(5, num.length); k++) {
+              if (/\d/.test(num[k])) present35Digits.add(parseInt(num[k], 10));
+            }
+          }
+        });
+      });
+      DIGIT_35_STATS = [];
+      for (let d = 0; d <= 9; d++) {
+        let ganCham = 0;
+        for (let i = histAll.length - 1; i >= 0; i--) {
+          const de = histAll[i].de || "";
+          if (de.includes(String(d))) break;
+          ganCham++;
+        }
+        let ganTong = 0;
+        for (let i = histAll.length - 1; i >= 0; i--) {
+          const de = histAll[i].de || "";
+          if (de.length === 2 && ((parseInt(de[0], 10) + parseInt(de[1], 10)) % 10) === d) break;
+          ganTong++;
+        }
+        DIGIT_35_STATS.push({
+          digit: d,
+          in35: present35Digits.has(d),
+          ganCham,
+          ganTong,
+          maxGan35: Math.max(ganCham, ganTong)
+        });
       }
+      render35Col3Days();
+
+      // Bảng dàn gan lâu (đầu trang)
+      DAN_MONITOR = getAllDanForMonitor().map(d => ({ ...d, ...evaluateDan(histAll, d.nums, d.ref) }));
+      const grpSel = document.getElementById('gl-group');
+      Array.from(new Set(DAN_MONITOR.map(d => d.group))).forEach(g => { grpSel.insertAdjacentHTML('beforeend', `<option value="${g}">${g}</option>`); });
+      renderGanLau();
+
+      // Cầu ghép gan (đối chiếu đúng ngày hôm sau)
+      const prizeCols = ["ĐB", "G1", "G2-1", "G2-2", "G3-1", "G3-2", "G3-3", "G3-4", "G3-5", "G3-6"];
+      const streaks = buildGhepRows(data.daily_prizes).streaks;
       document.getElementById('gan-summary-grid').innerHTML = prizeCols.map((n, idx) =>
         `<div class="gan-chip"><span class="gan-num">${n}</span><span class="gan-days">${streaks[idx]} ngày</span></div>`
       ).join("");
 
-      // Cảnh báo dàn nuôi
+      // Cảnh báo dàn nuôi: Max hiệu lực = max(Max chuẩn, Max thực tế các chu kỳ đã về)
       const histGDB = getAllHistoricalGDB(getNormalizedWeeks(data.weeks_gdb));
       const alerts = [];
-      getDanConfigs().forEach(cfg => {
-        const st = computeDanStats(histGDB, new Set(cfg.nums));
-        if (st.daysSince >= Math.floor(cfg.excelMax * 0.72)) {
-          alerts.push({ name: cfg.name, days: st.daysSince, max: cfg.excelMax, hot: st.daysSince >= cfg.excelMax });
-        }
+      getChamTongConfigs().concat(getDanConfigs()).forEach(cfg => {
+        const ev = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
+        if (ev.level === "max" || ev.level === "watch") alerts.push({ name: cfg.name, days: ev.gan, max: ev.effMax, hot: ev.level === "max", last: ev.lastHitDate });
       });
+      alerts.sort((a, b) => (b.hot - a.hot) || (b.days / b.max - a.days / a.max));
       document.getElementById('nuoi-alert-grid').innerHTML = alerts.length
-        ? alerts.map(a => `<div class="gan-chip" style="border-color:${a.hot ? '#ff4d4f' : '#d4b106'}"><span class="gan-num" style="color:${a.hot ? '#cf1322' : '#874d00'}">${a.name} — gan ${a.days} ngày</span><span class="gan-days">Max ${a.max}ng</span></div>`).join("")
+        ? alerts.map(a => `<div class="gan-chip" style="border-color:${a.hot ? '#ff4d4f' : '#d4b106'}"><span class="gan-num" style="color:${a.hot ? '#cf1322' : '#874d00'}">${a.hot ? '⚠ Chạm/vượt Max · ' : ''}${a.name} — gan ${a.days} ngày</span><span class="gan-days">Max ${a.max}ng · về gần nhất ${a.last}</span></div>`).join("")
         : `<span style="color:#555;">Hiện chưa có dàn nào chạm ngưỡng Max chu kỳ.</span>`;
     });
   </script>

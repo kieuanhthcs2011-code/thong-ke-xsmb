@@ -10,7 +10,7 @@
   --yellow-text: #c00000;
   --green: #92d050;
   --green-text: #0f3d0f;
-  --red-soft: #ffe2e2;
+  --red-soft: #fee2e2;
   --red-text: #b80000;
 }
 * { box-sizing: border-box; }
@@ -228,7 +228,9 @@ table.stat-table tbody tr:hover { background: #eef4fa; }
 .bg-yellow { background-color: var(--yellow) !important; color: var(--yellow-text) !important; font-weight: 700; }
 .bg-green { background-color: var(--green) !important; color: var(--green-text) !important; font-weight: 700; }
 .bg-red-alert { background-color: var(--red-soft) !important; color: var(--red-text) !important; font-weight: 700; }
-.highlight-match { outline: 2px solid #d97706; background-color: #fef3c7 !important; }
+.highlight-match { outline: 2px solid #d97706; background-color: #fff200 !important; color: #c00000 !important; font-weight: 800; }
+.highlight-match .de-sub, .highlight-match .date-tag { color: #c00000 !important; }
+.db-de { background: #fff200; color: #c00000; padding: 0 4px; border-radius: 3px; outline: 2px solid #d90000; margin-left: 2px; }
 .week-col { font-weight: 600; background: #f0f4f8; position: sticky; left: 0; z-index: 5; text-align: left; }
 .date-tag { display: inline-block; font-size: 11px; color: #0969da; font-weight: 600; margin-bottom: 2px; }
 .de-sub { display: block; font-size: 11px; color: #57606a; font-weight: normal; }
@@ -261,4 +263,40 @@ table.stat-table tbody tr:hover { background: #eef4fa; }
   padding: 10px 14px;
   border: 1px solid #d0d7de;
   border-radius: 6px;
+}
+
+/* Tối ưu giao diện trên điện thoại & bảng nhiều cột */
+.table-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 768px) {
+  body { font-size: 13px; }
+  .top-bar { padding: 10px 12px; }
+  .brand-title { font-size: 13px; }
+  .nav-menu {
+    padding: 6px 8px 0;
+    gap: 4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-link {
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  select, input.filter-input, button.action-btn, .q-btn {
+    min-height: 34px;
+    font-size: 12px;
+  }
+  table.stat-table th, table.stat-table td {
+    padding: 6px 6px;
+    font-size: 12px;
+  }
+  .week-col {
+    position: sticky;
+    left: 0;
+    z-index: 6;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+  }
 }

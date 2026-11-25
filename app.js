@@ -29,98 +29,209 @@ function canForm2Digit(fiveDigits, target2) {
 }
 
 
-function getNext7ConsecutiveDaysStats(allWeeks, wIdx, dIdx) {
-  const sumsSet = new Set();
-  const chamSet = new Set();
-  const daysDetail = [];
-  for (let k = 1; k <= 7; k++) {
-    const totalOffset = dIdx + k;
-    const tw = wIdx - Math.floor(totalOffset / 7);
-    const td = totalOffset % 7;
-    if (tw < 0 || tw >= allWeeks.length) break;
-    const num = allWeeks[tw].nums[td] || "";
-    if (!num || num.length < 2) break;
-    const d1 = parseInt(num[num.length - 2], 10);
-    const d2 = parseInt(num[num.length - 1], 10);
-    const s = (d1 + d2) % 10;
-    sumsSet.add(s);
-    chamSet.add(d1);
-    chamSet.add(d2);
-    const dt = new Date(allWeeks[tw].mDt);
-    dt.setDate(allWeeks[tw].mDt.getDate() + td);
-    daysDetail.push(`${formatShortDate(dt)}:${num.slice(-2)}(T${s})`);
+/* ===================== CHUẨN HÓA DỮ LIỆU (giống update_xsmb.py) ===================== */
+const FIVE_RE = /^\d{5}$/;
+const DUP_WINDOW_DAYS = 16;
+
+function toVNDateStr(s) {
+  s = String(s == null ? "" : s).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[3].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[1]}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3]}`;
+  return null;
+}
+function extractPrizes(v) {
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === "object") {
+    if (Array.isArray(v.prizes)) return v.prizes;
+    if (v.db) return [v.db, v.g1, ...(v.g2 || []), ...(v.g3 || [])];
   }
-  return {
-    count: daysDetail.length,
-    hasFull7: daysDetail.length === 7,
-    sumsSet,
-    chamSet,
-    daysDetail
+  return null;
+}
+/* daily_prizes: list {date,prizes} | dict {ngày: [...] | {prizes:[...]}} -> list sắp theo thời gian */
+function normalizeDailyPrizes(raw) {
+  const out = new Map();
+  const put = (date, prizes) => {
+    const d = toVNDateStr(date);
+    if (!d || !Array.isArray(prizes) || !prizes.length) return;
+    const p = prizes.map(x => String(x == null ? "" : x));
+    if (FIVE_RE.test(p[0])) out.set(d, p);
   };
+  if (Array.isArray(raw)) {
+    raw.forEach(it => {
+      if (Array.isArray(it) && it.length === 2) put(it[0], extractPrizes(it[1]));
+      else if (it && typeof it === "object") put(it.date, extractPrizes(it));
+    });
+  } else if (raw && typeof raw === "object") {
+    Object.entries(raw).forEach(([k, v]) => put(k, extractPrizes(v)));
+  }
+  return Array.from(out, ([date, prizes]) => ({ date, prizes }))
+    .sort((a, b) => parseVNDate(a.date) - parseVNDate(b.date));
 }
 
-function getNormalizedWeeks(rawWeeks) {
-  const mapByMon = new Map();
-  const baseMon = new Date(2026, 10, 23);
-  rawWeeks.forEach((item, idx) => {
-    let monStr, nums;
-    if (Array.isArray(item)) {
-      const dt = new Date(baseMon);
-      dt.setDate(baseMon.getDate() - 7 * idx);
-      monStr = formatVNDate(dt);
-      nums = item;
-    } else {
-      monStr = item.monday;
-      nums = item.nums;
-    }
-    const cleanNums = (nums || []).slice(0, 7).map(x => (x || "").trim());
-    while (cleanNums.length < 7) cleanNums.push("");
-    const nonEmptySig = cleanNums.filter(Boolean).join('|');
-    let exists = false;
-    for (const ex of mapByMon.values()) {
-      const exSig = ex.nums.filter(Boolean).join('|');
-      if (nonEmptySig && (exSig === nonEmptySig || exSig.startsWith(nonEmptySig + '|') || nonEmptySig.startsWith(exSig + '|'))) {
-        exists = true;
-        break;
-      }
-    }
-    if (!exists && !mapByMon.has(monStr)) {
-      const mDt = parseVNDate(monStr);
-      const sDt = new Date(mDt);
-      sDt.setDate(mDt.getDate() + 6);
-      mapByMon.set(monStr, {
-        monday: monStr,
-        mDt,
-        label: `${formatShortDate(mDt)} - ${formatVNDate(sDt)}`,
-        nums: cleanNums
-      });
+function _weekItems(raw, baseMon) {
+  const items = [];
+  if (raw && !Array.isArray(raw) && typeof raw === "object") {
+    Object.entries(raw).forEach(([k, v]) => {
+      const ds = toVNDateStr(k), nums = Array.isArray(v) ? v : (v && v.nums);
+      if (ds && Array.isArray(nums)) items.push([parseVNDate(ds), nums]);
+    });
+    return items;
+  }
+  (raw || []).forEach((wk, idx) => {
+    if (Array.isArray(wk)) {
+      const dt = new Date(baseMon); dt.setDate(baseMon.getDate() - 7 * idx);
+      items.push([dt, wk]);
+    } else if (wk && wk.monday && toVNDateStr(wk.monday)) {
+      items.push([parseVNDate(toVNDateStr(wk.monday)), wk.nums || []]);
     }
   });
+  return items;
+}
 
-  // Đồng bộ chính xác theo ngày thực tế từ daily_prizes (nếu có) để không bao giờ lệch tuần
-  if (typeof globalData !== "undefined" && globalData && Array.isArray(globalData.daily_prizes)) {
-    globalData.daily_prizes.forEach(dp => {
-      if (!dp || !dp.date || !Array.isArray(dp.prizes) || !dp.prizes[0]) return;
-      const dt = parseVNDate(dp.date);
-      const wd = (dt.getDay() + 6) % 7; // Mon=0 .. Sun=6
-      const mDt = new Date(dt);
-      mDt.setDate(dt.getDate() - wd);
-      const monStr = formatVNDate(mDt);
-      if (!mapByMon.has(monStr)) {
-        const sDt = new Date(mDt);
-        sDt.setDate(mDt.getDate() + 6);
-        mapByMon.set(monStr, {
-          monday: monStr,
-          mDt,
-          label: `${formatShortDate(mDt)} - ${formatVNDate(sDt)}`,
-          nums: ["", "", "", "", "", "", ""]
-        });
-      }
-      mapByMon.get(monStr).nums[wd] = dp.prizes[0];
-    });
+/* Trả về danh sách tuần (mới -> cũ), mỗi tuần {monday, mDt, label, nums[7]} */
+function getNormalizedWeeks(rawWeeks) {
+  const daily = (typeof globalData !== "undefined" && globalData) ? normalizeDailyPrizes(globalData.daily_prizes) : [];
+  const dayKey = dt => formatVNDate(dt);
+  let baseMon = new Date(2026, 10, 23);
+  if (daily.length) {
+    const nd = parseVNDate(daily[daily.length - 1].date);
+    baseMon = new Date(nd); baseMon.setDate(nd.getDate() - ((nd.getDay() + 6) % 7));
+  }
+  const byMon = new Map(); // key dd/mm/yyyy của Thứ 2 -> {mDt, nums}
+  _weekItems(rawWeeks, baseMon).forEach(([mon0, nums]) => {
+    const mon = new Date(mon0); mon.setDate(mon0.getDate() - ((mon0.getDay() + 6) % 7));
+    const k = dayKey(mon);
+    if (!byMon.has(k)) byMon.set(k, { mDt: mon, nums: ["", "", "", "", "", "", ""] });
+    const cur = byMon.get(k).nums;
+    for (let i = 0; i < 7; i++) {
+      const c = String((nums || [])[i] == null ? "" : nums[i]).trim();
+      if (FIVE_RE.test(c) && !cur[i]) cur[i] = c;
+    }
+  });
+  if (!byMon.size && !daily.length) return [];
+
+  // ô giữ chỗ "00000" (>= 2 lần trong 1 tuần) -> để trống
+  byMon.forEach(w => {
+    if (w.nums.filter(c => c === "00000").length >= 2) w.nums = w.nums.map(c => (c === "00000" ? "" : c));
+  });
+
+  // daily_prizes là nguồn đúng nhất
+  const verified = new Set();
+  daily.forEach(e => {
+    const dt = parseVNDate(e.date);
+    const mon = new Date(dt); mon.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
+    const k = dayKey(mon);
+    if (!byMon.has(k)) byMon.set(k, { mDt: mon, nums: ["", "", "", "", "", "", ""] });
+    byMon.get(k).nums[(dt.getDay() + 6) % 7] = e.prizes[0];
+    verified.add(e.date);
+  });
+
+  // lấp tuần trống để chuỗi tuần liên tục
+  const mons = Array.from(byMon.values()).map(w => w.mDt.getTime());
+  const newest = Math.max(...mons), oldest = Math.min(...mons);
+  for (let t = new Date(oldest); t.getTime() <= newest; t.setDate(t.getDate() + 7)) {
+    const k = dayKey(t);
+    if (!byMon.has(k)) byMon.set(k, { mDt: new Date(t), nums: ["", "", "", "", "", "", ""] });
   }
 
-  return Array.from(mapByMon.values()).sort((a, b) => b.mDt - a.mDt);
+  // ô trùng hệt trong cửa sổ <= 16 ngày: xóa ô CŨ HƠN (trừ khi đã được daily xác nhận)
+  const cells = [];
+  byMon.forEach(w => w.nums.forEach((c, i) => {
+    if (c) { const dt = new Date(w.mDt); dt.setDate(w.mDt.getDate() + i); cells.push({ dt, w, i, c }); }
+  }));
+  cells.sort((a, b) => a.dt - b.dt);
+  const removed = [];
+  for (let a = 0; a < cells.length; a++) {
+    for (let b = a + 1; b < cells.length; b++) {
+      const A = cells[a], B = cells[b];
+      if (Math.round((B.dt - A.dt) / 86400000) > DUP_WINDOW_DAYS) break;
+      if (A.c !== B.c || !A.w.nums[A.i] || !B.w.nums[B.i]) continue;
+      const va = verified.has(dayKey(A.dt)), vb = verified.has(dayKey(B.dt));
+      if (va && vb) continue;
+      const t = (va && !vb) ? B : A;
+      t.w.nums[t.i] = "";
+      removed.push(`${dayKey(t.dt)}: xóa ${t.c} (trùng hệt ngày ${dayKey(t === A ? B.dt : A.dt)})`);
+    }
+  }
+  if (removed.length && typeof console !== "undefined") console.info("Làm sạch tuần:", removed);
+
+  return Array.from(byMon.values()).map(w => {
+    const sDt = new Date(w.mDt); sDt.setDate(w.mDt.getDate() + 6);
+    return {
+      monday: formatVNDate(w.mDt), mDt: w.mDt,
+      label: `${formatShortDate(w.mDt)} - ${formatVNDate(sDt)}`,
+      nums: w.nums
+    };
+  }).sort((a, b) => b.mDt - a.mDt);
+}
+
+/* Chỉ mục ngày -> GĐB để đối chiếu 7 ngày liên tiếp theo LỊCH */
+const _dayIdxCache = new WeakMap();
+function buildDayIndex(allWeeks) {
+  let c = _dayIdxCache.get(allWeeks);
+  if (c) return c;
+  const map = new Map(); let latest = null;
+  allWeeks.forEach(wk => {
+    for (let d = 0; d < 7; d++) {
+      const v = wk.nums[d];
+      if (v && FIVE_RE.test(v)) {
+        const dt = new Date(wk.mDt); dt.setDate(wk.mDt.getDate() + d);
+        map.set(formatVNDate(dt), v);
+        if (!latest || dt > latest) latest = dt;
+      }
+    }
+  });
+  c = { map, latest };
+  _dayIdxCache.set(allWeeks, c);
+  return c;
+}
+
+/* 7 ngày liên tiếp NGAY SAU ngày (wIdx,dIdx): từ D+1 đến D+7.
+   hasFull7 = cả 7 ngày đó đã trôi qua (D+7 <= ngày mới nhất có KQ). Ngày nghỉ quay (Tết) không có số thì bỏ qua. */
+function getNext7ConsecutiveDaysStats(allWeeks, wIdx, dIdx) {
+  const { map, latest } = buildDayIndex(allWeeks);
+  const sumsSet = new Set(), chamSet = new Set(), daysDetail = [];
+  const base = new Date(allWeeks[wIdx].mDt); base.setDate(base.getDate() + dIdx);
+  const end = new Date(base); end.setDate(base.getDate() + 7);
+  const hasFull7 = !!latest && end <= latest;
+  for (let k = 1; k <= 7; k++) {
+    const dt = new Date(base); dt.setDate(base.getDate() + k);
+    if (!latest || dt > latest) break;
+    const num = map.get(formatVNDate(dt));
+    if (!num) continue;
+    const d1 = parseInt(num[3], 10), d2 = parseInt(num[4], 10), s = (d1 + d2) % 10;
+    sumsSet.add(s); chamSet.add(d1); chamSet.add(d2);
+    daysDetail.push(`${formatShortDate(dt)}:${num.slice(-2)}(T${s})`);
+  }
+  return { count: daysDetail.length, hasFull7, sumsSet, chamSet, daysDetail };
+}
+
+
+/* Giải phụ lấy theo NGÀY từ data.daily_aux (do update_xsmb.py tự bù toàn bộ lịch sử). */
+function auxOfDay(mDt, offset) {
+  const dt = new Date(mDt); dt.setDate(mDt.getDate() + offset);
+  const m = (typeof globalData !== "undefined" && globalData && globalData.daily_aux) || {};
+  const r = m[formatVNDate(dt)];
+  return (r && typeof r.g1 === "string" && r.g1.length >= 5 && Array.isArray(r.g7)) ? r : null;
+}
+function auxCols(wk) {
+  const out = {};
+  const mon = auxOfDay(wk.mDt, 0), sat = auxOfDay(wk.mDt, 5), sun = auxOfDay(wk.mDt, 6);
+  const dg = (s, i) => parseInt(s[i], 10);
+  if (mon && wk.nums[0]) {
+    if (mon.g7[3] && mon.g7[3].length >= 2) out.c_g74 = String((dg(mon.g7[3], 0) + dg(mon.g7[3], 1)) % 10);
+    out.d_g1 = String((dg(mon.g1, 3) + dg(mon.g1, 4)) % 10);
+    out.e_bg1 = mon.g1[1];
+  }
+  if (sat && wk.nums[5]) {
+    out.ar_bg1t7 = sat.g1[1];
+    if (sat.g7[0] && sat.g7[3] && sat.g7[0].length >= 2 && sat.g7[3].length >= 2)
+      out.as_g71_g74 = String((dg(sat.g7[0], 1) + dg(sat.g7[3], 0)) % 10);
+  }
+  if (sun && wk.nums[6]) out.g1cn = String((dg(sun.g1, 0) + dg(sun.g1, 1)) % 10);
+  return out;
 }
 
 function getAllHistoricalGDB(allWeeks) {
@@ -140,36 +251,81 @@ function getAllHistoricalGDB(allWeeks) {
 }
 
 function computeDanStats(histGDB, targetSet) {
-  let daysSince = 0, lastHitDate = "Chưa thấy", lastHitDe = "--", maxClosedStreak = 0, curStreak = 0;
-  let seenFirstHit = false;
+  // histGDB: chỉ gồm các ngày CÓ kết quả (ngày trống không được đếm), thứ tự cũ -> mới.
+  let curStreak = 0, maxClosedStreak = 0, seenFirstHit = false;
+  let lastHitDate = "Chưa thấy", lastHitDe = "--", hits = 0;
   for (let i = 0; i < histGDB.length; i++) {
     const item = histGDB[i];
     if (!item || !item.de || !/^\d{2}$/.test(item.de)) continue;
     if (targetSet.has(item.de)) {
-      // Chỉ tính max từ các chu kỳ đã về thực tế; không cộng dồn chu kỳ đầu chưa có mốc mở
-      if (seenFirstHit && curStreak > maxClosedStreak) {
-        maxClosedStreak = curStreak;
-      }
+      // Max thực tế = chu kỳ ĐÃ VỀ (mốc về trước -> lần về sau). Đoạn gan đầu lịch sử (chưa có mốc mở)
+      // và chuỗi gan hiện tại (chưa về) KHÔNG được tính.
+      if (seenFirstHit && curStreak > maxClosedStreak) maxClosedStreak = curStreak;
       seenFirstHit = true;
       curStreak = 0;
       lastHitDate = item.date;
       lastHitDe = item.de;
+      hits++;
     } else {
       curStreak++;
     }
   }
-  daysSince = curStreak;
-  // Không lấy chuỗi hiện tại chưa về làm maxObserved
-  return { daysSince, lastHitDate, lastHitDe, maxObserved: maxClosedStreak };
+  return { daysSince: curStreak, lastHitDate, lastHitDe, maxObserved: maxClosedStreak, hits };
+}
+
+/* Đánh giá 1 dàn: Max hiệu lực = max(Max chuẩn/tham chiếu, Max thực tế của các chu kỳ đã về).
+   Chuỗi gan hiện tại KHÔNG bao giờ làm tăng Max. level: hit | max | watch | normal */
+const WATCH_RATIO = 0.72;
+function evaluateDan(histGDB, nums, referenceMax) {
+  const st = computeDanStats(histGDB, new Set(nums));
+  const ref = Number(referenceMax) || 0;
+  const effMax = Math.max(ref, st.maxObserved);
+  const gan = st.daysSince;
+  let level = "normal";
+  if (gan === 0) level = "hit";
+  else if (effMax > 0 && gan >= effMax) level = "max";
+  else if (effMax > 0 && gan >= Math.floor(effMax * WATCH_RATIO)) level = "watch";
+  return { ...st, gan, ref, effMax, level, over: effMax > 0 ? Math.max(0, gan - effMax) : 0 };
+}
+const DAN_LEVEL = {
+  hit:    { cls: "bg-green",     badge: "st-hit",    text: "Vừa về" },
+  max:    { cls: "bg-red-alert", badge: "st-max",    text: "Chạm/Vượt Max!" },
+  watch:  { cls: "bg-yellow",    badge: "st-watch",  text: "Sắp chạm Max" },
+  normal: { cls: "",             badge: "st-normal", text: "Đang theo dõi" }
+};
+
+/* Ghép 2 số ĐB→G3-6 đối chiếu 2 số cuối GĐB NGÀY HÔM SAU (đúng ngày lịch liền kề). */
+function buildGhepRows(dailyRaw) {
+  const daily = normalizeDailyPrizes(dailyRaw).filter(e => e.prizes.length >= 10);
+  const byDate = new Map(daily.map(e => [e.date, e]));
+  const streaks = Array(10).fill(0), rows = [];
+  daily.forEach((row, i) => {
+    const dt = parseVNDate(row.date); const nx = new Date(dt); nx.setDate(dt.getDate() + 1);
+    const nextRec = byDate.get(formatVNDate(nx));
+    const prizes = row.prizes.slice(0, 10);
+    const isLast = i === daily.length - 1;
+    if (nextRec) {
+      const nextDb = nextRec.prizes[0], nextDe = nextDb.slice(-2);
+      const cells = prizes.map((p, idx) => {
+        if (canForm2Digit(p, nextDe)) { streaks[idx] = 0; return { p, hit: true, streak: 0 }; }
+        streaks[idx]++; return { p, hit: false, streak: streaks[idx] };
+      });
+      rows.push({ date: row.date, wd: getWeekdayName(dt), nextDb, nextDe, cells, pending: false });
+    } else {
+      rows.push({ date: row.date, wd: getWeekdayName(dt), nextDb: "", nextDe: "", pending: true, missing: !isLast,
+        cells: prizes.map((p, idx) => ({ p, hit: false, streak: streaks[idx] })) });
+    }
+  });
+  return { rows, streaks: streaks.slice() };
 }
 
 function getBoKep4SoConfigs() {
   return [
-    { name: "Bộ 00 (4 số)", excelMax: 45, nums: ["00", "05", "50", "55"] },
-    { name: "Bộ 11 (4 số)", excelMax: 45, nums: ["11", "16", "61", "66"] },
-    { name: "Bộ 22 (4 số)", excelMax: 45, nums: ["22", "27", "72", "77"] },
-    { name: "Bộ 33 (4 số)", excelMax: 45, nums: ["33", "38", "83", "88"] },
-    { name: "Bộ 44 (4 số)", excelMax: 45, nums: ["44", "49", "94", "99"] }
+    { name: "Bộ 00 (4 số)", excelMax: 126, nums: ["00", "05", "50", "55"] },
+    { name: "Bộ 11 (4 số)", excelMax: 149, nums: ["11", "16", "61", "66"] },
+    { name: "Bộ 22 (4 số)", excelMax: 142, nums: ["22", "27", "72", "77"] },
+    { name: "Bộ 33 (4 số)", excelMax: 162, nums: ["33", "38", "83", "88"] },
+    { name: "Bộ 44 (4 số)", excelMax: 134, nums: ["44", "49", "94", "99"] }
   ];
 }
 
@@ -225,6 +381,52 @@ function getDanConfigs() {
   ];
 }
 
+
+/* Lịch nuôi theo ngày trong tháng (tab 'tính' BB–BJ): khoảng ngày -> dàn đang nuôi */
+function getLichNuoiThang() {
+  const byShort = {};
+  getDanConfigs().forEach(c => { byShort[c.short] = c; });
+  return [
+    { from: 4,  to: 10, label: "Mùng 4 nổ 44 → nuôi Tổng 3-8 (4→10)",  dan: byShort["T3-8 (4→10)"] },
+    { from: 8,  to: 14, label: "Từ ngày 8–14 → nuôi Tổng 4-9",          dan: byShort["T4-9 (8→14)"] },
+    { from: 15, to: 22, label: "Từ ngày 15–22 → nuôi 2 Kép",            dan: byShort["2 Kép (15→22)"] },
+    { from: 26, to: 31, label: "Từ ngày 26–hết tháng → nuôi Tổng 1-6",  dan: byShort["T1-6 (26→hết)"] }
+  ].filter(x => x.dan);
+}
+
+/* Các dàn có CÙNG tập số với tập `nums` (so với toàn bộ dàn đã cấu hình + danh sách thêm vào) */
+function findDuplicateDans(nums, extraLists) {
+  const sig = a => Array.from(new Set(a)).sort().join(",");
+  const target = sig(nums), hits = [];
+  const pools = [].concat(
+    getDanConfigs().map(c => ({ name: c.name, nums: c.nums })),
+    getChamTongConfigs().map(c => ({ name: c.name, nums: c.nums })),
+    getBoKep4SoConfigs().map(c => ({ name: c.name, nums: c.nums })),
+    getImageF3F9A1Configs().map(c => ({ name: c.name, nums: c.nums })),
+    extraLists || []
+  );
+  pools.forEach(p => { if (sig(p.nums) === target) hits.push(p.name); });
+  return Array.from(new Set(hits));
+}
+
+
+/* Gộp MỌI dàn (31 dàn nhóm 1-2, 10 Chạm–Tổng, 5 bộ kép, dàn BR–BT/ảnh) để theo dõi gan; bỏ dàn trùng tập số. */
+function getAllDanForMonitor() {
+  const sig = n => Array.from(new Set(n)).sort().join(",");
+  const seen = new Set(), out = [];
+  const add = (group, c) => {
+    const k = sig(c.nums);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ group, name: c.name, nums: c.nums, ref: c.excelMax });
+  };
+  getChamTongConfigs().forEach(c => add("Chạm–Tổng", c));
+  getDanConfigs().forEach(c => add(c.group, c));
+  getBoKep4SoConfigs().forEach(c => add("Bộ kép 4 số", c));
+  getImageF3F9A1Configs().forEach(c => add(c.subGroup, c));
+  return out;
+}
+
 function exportFullWorkbook() {
   if (!globalData || typeof XLSX === "undefined") {
     alert("Đang tải dữ liệu hoặc thư viện Excel, vui lòng đợi 2 giây!");
@@ -253,7 +455,7 @@ function exportFullWorkbook() {
   });
   const ws1 = XLSX.utils.aoa_to_sheet(s1Rows);
   ws1["!cols"] = [{ wch: 24 }, ...Array(7).fill({ wch: 22 })];
-  XLSX.utils.book_append_sheet(wb, ws1, "1. GDB Theo Tuan");
+  XLSX.utils.book_append_sheet(wb, ws1, "T1. GDB Theo Tuan");
 
   // Sheet 2 (So sánh từng ngày với 7 ngày liên tiếp ngay sau ngày đó)
   const s2Rows = [ ["Tuần", "Tập Tổng 7N sau T2", ...Array.from({ length: 35 }, (_, i) => `Cột ${i + 1}`)].map(h => ({ v: h, s: headerStyle })) ];
@@ -279,7 +481,7 @@ function exportFullWorkbook() {
   });
   const ws2 = XLSX.utils.aoa_to_sheet(s2Rows);
   ws2["!cols"] = [{ wch: 24 }, { wch: 20 }, ...Array(35).fill({ wch: 6 })];
-  XLSX.utils.book_append_sheet(wb, ws2, "3. Bang 35 Cot (Tong)");
+  XLSX.utils.book_append_sheet(wb, ws2, "T3. Bang 35 Cot (Tong)");
 
   // Sheet 35 Cột theo Chạm (So sánh từng ngày với 7 ngày liên tiếp ngay sau ngày đó)
   const s2bRows = [ ["Tuần", "Tập Chạm 7N sau T2", ...Array.from({ length: 35 }, (_, i) => `Cột ${i + 1}`)].map(h => ({ v: h, s: headerStyle })) ];
@@ -305,56 +507,48 @@ function exportFullWorkbook() {
   });
   const ws2b = XLSX.utils.aoa_to_sheet(s2bRows);
   ws2b["!cols"] = [{ wch: 24 }, { wch: 22 }, ...Array(35).fill({ wch: 6 })];
-  XLSX.utils.book_append_sheet(wb, ws2b, "4. Bang 35 Cot (Cham)");
+  XLSX.utils.book_append_sheet(wb, ws2b, "T4. Bang 35 Cot (Cham)");
 
-  // Sheet 3 (40 days)
-  const daily = globalData.daily_prizes;
+  // Sheet 3 (Ghép 2 số - đối chiếu GĐB ngày hôm sau, 40 ngày)
   const prizeCols = ["ĐB", "G1", "G2-1", "G2-2", "G3-1", "G3-2", "G3-3", "G3-4", "G3-5", "G3-6"];
-  let streaks = Array(10).fill(0);
-  const comp3 = [];
-  for (let i = 0; i < daily.length; i++) {
-    const row = daily[i];
-    if (i < daily.length - 1) {
-      const nextDb = daily[i + 1].prizes[0];
-      const nextDe = nextDb.slice(-2);
-      const cells = row.prizes.map((p, pIdx) => {
-        if (canForm2Digit(p, nextDe)) { streaks[pIdx] = 0; return { hit: true, v: `${p} [Trúng ${nextDe}]` }; }
-        streaks[pIdx]++; return { hit: false, v: `${p} (${streaks[pIdx]})` };
-      });
-      comp3.push({ date: row.date, next: `${nextDb} (${nextDe})`, cells });
-    } else {
-      comp3.push({ date: row.date, next: "Chờ KQ hôm sau", cells: row.prizes.map((p, idx) => ({ hit: false, v: `${p} (${streaks[idx]})` })) });
-    }
-  }
+  const comp3 = buildGhepRows(globalData.daily_prizes).rows;
   const s3Rows = [ ["Ngày", "ĐB hôm sau", ...prizeCols].map(h => ({ v: h, s: headerStyle })) ];
   comp3.slice(-40).reverse().forEach(r => {
+    const nextTxt = r.pending ? (r.missing ? "Thiếu KQ hôm sau" : "Chờ KQ hôm sau") : `${r.nextDb} (${r.nextDe})`;
     s3Rows.push([
       { v: r.date, s: baseCellStyle },
-      { v: r.next, s: baseCellStyle },
-      ...r.cells.map(c => ({ v: c.v, s: c.hit ? greenStyle : baseCellStyle }))
+      { v: nextTxt, s: baseCellStyle },
+      ...r.cells.map(c => ({
+        v: c.hit ? `${c.p} [Trúng ${r.nextDe}]` : `${c.p} (${c.streak})`,
+        s: c.hit ? greenStyle : baseCellStyle
+      }))
     ]);
   });
   const ws3 = XLSX.utils.aoa_to_sheet(s3Rows);
   ws3["!cols"] = [{ wch: 15 }, { wch: 18 }, ...Array(10).fill({ wch: 16 })];
-  XLSX.utils.book_append_sheet(wb, ws3, "3. Ghep 2 So 40 Ngay");
+  XLSX.utils.book_append_sheet(wb, ws3, "T5. Ghep 2 So 40 Ngay");
 
-  // Sheet 4 (Dàn Nuôi)
+  // Sheet Dàn nuôi (Max hiệu lực = max(Max chuẩn, Max thực tế các chu kỳ đã về))
+  const redStyle = { font: { bold: true, color: { rgb: "B80000" } }, fill: { fgColor: { rgb: "FFE2E2" } }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: borderStyle };
   const histGDB = getAllHistoricalGDB(allWeeks);
-  const s4Rows = [ ["Tên Dàn Nuôi", "Số con", "Chưa về (Ngày)", "Chu kỳ Max", "Về gần nhất"].map(h => ({ v: h, s: headerStyle })) ];
+  const s4Rows = [ ["Tên Dàn Nuôi", "Số con", "Gan (ngày chưa về)", "Max hiệu lực", "Max chuẩn", "Max thực tế", "Về gần nhất", "Trạng thái"].map(h => ({ v: h, s: headerStyle })) ];
   getDanConfigs().forEach(cfg => {
-    const st = computeDanStats(histGDB, new Set(cfg.nums));
-    const style = st.daysSince === 0 ? greenStyle : (st.daysSince >= Math.floor(cfg.excelMax * 0.72) ? yellowStyle : baseCellStyle);
+    const ev = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
+    const style = ev.level === "hit" ? greenStyle : (ev.level === "max" ? redStyle : (ev.level === "watch" ? yellowStyle : baseCellStyle));
     s4Rows.push([
-      { v: `${cfg.name} — ${st.daysSince === 0 ? "vừa về (0 ngày)" : "gan " + st.daysSince + " ngày"}`, s: style },
+      { v: `${cfg.name} — ${ev.gan === 0 ? "vừa về (0 ngày)" : "gan " + ev.gan + " ngày"}`, s: style },
       { v: `${cfg.count}s`, s: style },
-      { v: st.daysSince, s: style },
-      { v: cfg.excelMax, s: style },
-      { v: `${st.lastHitDate} (${st.lastHitDe})`, s: style }
+      { v: ev.gan, s: style },
+      { v: ev.effMax, s: style },
+      { v: ev.ref, s: style },
+      { v: ev.maxObserved, s: style },
+      { v: `${ev.lastHitDate} (${ev.lastHitDe})`, s: style },
+      { v: DAN_LEVEL[ev.level].text, s: style }
     ]);
   });
   const ws4 = XLSX.utils.aoa_to_sheet(s4Rows);
-  ws4["!cols"] = [{ wch: 32 }, { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 22 }];
-  XLSX.utils.book_append_sheet(wb, ws4, "4. Dan Nuoi Chu Ky");
+  ws4["!cols"] = [{ wch: 36 }, { wch: 9 }, { wch: 14 }, { wch: 12 }, { wch: 11 }, { wch: 12 }, { wch: 22 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, ws4, "T2. Dan Nuoi Chu Ky");
 
   XLSX.writeFile(wb, `Thongke_web_app_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
@@ -363,10 +557,12 @@ async function loadSharedData(onReadyCallback) {
   try {
     const res = await fetch('data.json?t=' + Date.now());
     globalData = await res.json();
+    globalData.daily_prizes = normalizeDailyPrizes(globalData.daily_prizes);
     const statusEl = document.getElementById('status-text');
-    if (statusEl) statusEl.innerText = "Cập nhật tự động: " + globalData.last_updated;
+    if (statusEl) statusEl.innerText = "Cập nhật tự động: " + (globalData.last_updated || "—");
     if (onReadyCallback) onReadyCallback(globalData);
   } catch (e) {
+    console.error(e);
     const statusEl = document.getElementById('status-text');
     if (statusEl) statusEl.innerText = "Lỗi tải data.json";
   }
@@ -431,16 +627,10 @@ function computeChamSheetRow(wk, prevWk, auxMap, dailyPrizesList) {
     }
   }
 
-  // Fallback chuẩn xác khi tuần lịch sử cũ chưa lưu giải Nhất / giải Bảy trong JSON
-  if (monGdb && monGdb.length >= 5) {
-    if (rawAux.c_g74 === "") rawAux.c_g74 = String((parseInt(monGdb[1], 10) + parseInt(monGdb[4], 10)) % 10);
-    if (rawAux.d_g1 === "") rawAux.d_g1 = String((parseInt(monGdb[2], 10) + parseInt(monGdb[3], 10)) % 10);
-    if (rawAux.e_bg1 === "") rawAux.e_bg1 = monGdb[2];
-  }
-  if (satGdb && satGdb.length >= 5) {
-    if (rawAux.ar_bg1t7 === "") rawAux.ar_bg1t7 = satGdb[1];
-    if (rawAux.as_g71_g74 === "") rawAux.as_g71_g74 = String((parseInt(satGdb[2], 10) + parseInt(satGdb[3], 10)) % 10);
-  }
+  // Không tự suy ra c_g74 / d_g1 / e_bg1 / ar_bg1t7 / as_g71_g74 từ GĐB: các cột này lấy từ Giải Nhất & Giải Bảy.
+  // Tuần chưa có dữ liệu giải Nhất/Bảy để trống cho tới khi update_xsmb.py bù được.
+  const byDay = auxCols(wk);
+  Object.keys(byDay).forEach(k => { if (k !== 'g1cn') rawAux[k] = byDay[k]; });
   const aux = rawAux;
 
   const dig = (s, idx) => (s && s.length > idx) ? parseInt(s[idx], 10) : null;
@@ -522,7 +712,8 @@ function computeTinhCauRow(wk, g1cnMap, dailyPrizesList) {
   const n = wk.nums;
   const monGdb = n[0] || "";
   const sunGdb = n[6] || "";
-  let g1cnVal = (g1cnMap && monGdb && g1cnMap[monGdb] !== undefined && g1cnMap[monGdb] !== "") ? g1cnMap[monGdb] : "";
+  const byDayT = auxCols(wk);
+  let g1cnVal = byDayT.g1cn !== undefined ? byDayT.g1cn : ((g1cnMap && monGdb && g1cnMap[monGdb] !== undefined && g1cnMap[monGdb] !== "") ? g1cnMap[monGdb] : "");
   if (g1cnVal === "" && Array.isArray(dailyPrizesList) && wk.mDt) {
     const sunDt = new Date(wk.mDt);
     sunDt.setDate(wk.mDt.getDate() + 6);
@@ -530,9 +721,6 @@ function computeTinhCauRow(wk, g1cnMap, dailyPrizesList) {
     if (sunRec && Array.isArray(sunRec.prizes) && sunRec.prizes[1] && sunRec.prizes[1].length >= 2) {
       g1cnVal = String((parseInt(sunRec.prizes[1][0], 10) + parseInt(sunRec.prizes[1][1], 10)) % 10);
     }
-  }
-  if (g1cnVal === "" && sunGdb && sunGdb.length >= 2) {
-    g1cnVal = String((parseInt(sunGdb[0], 10) + parseInt(sunGdb[1], 10)) % 10);
   }
 
   const dig = (s, idx) => (s && s.length > idx) ? parseInt(s[idx], 10) : null;
@@ -582,19 +770,20 @@ function computeTinhCauRow(wk, g1cnMap, dailyPrizesList) {
 
 
 function getChamTongConfigs() {
-  // Exact order & Max values from user's image (image_ea0fa3.png) + exact numbers from Excel Comments
-  return [
+  // 10 dàn Chạm–Tổng C0,T0 → C9,T9 (Max chuẩn từ tab 'tổng' BF–BH; số lấy từ Comment). Sắp theo C0..C9.
+  const list = [
     { name: "C1,T1", excelMax: 21, nums: ["01","10","11","12","21","13","31","14","41","15","51","16","61","17","71","18","81","19","91","29","92","38","83","47","74","56","65"] },
     { name: "C0,T0", excelMax: 23, nums: ["00","01","10","02","20","03","30","04","40","05","50","06","60","07","70","08","80","09","90","19","91","28","82","37","73","46","64","55"] },
     { name: "C2,T2", excelMax: 29, nums: ["02","20","12","21","22","23","32","24","42","25","52","26","62","27","72","28","82","29","92","11","66","39","93","48","84","57","75"] },
     { name: "C3,T3", excelMax: 26, nums: ["03","30","13","31","23","32","33","34","43","35","53","36","63","37","73","38","83","39","93","12","21","49","94","58","85","67","76"] },
-    { name: "C4, T4", excelMax: 32, nums: ["04","40","14","41","24","42","34","43","44","45","54","46","64","47","74","48","84","49","94","13","31","22","59","95","68","86","77"] },
-    { name: "C5, T5", excelMax: 37, nums: ["05","50","15","51","25","52","35","53","45","54","55","56","65","57","75","58","85","59","95","14","41","23","32","69","96","78","87"] },
-    { name: "C6 ,T6", excelMax: 27, nums: ["06","60","16","61","26","62","36","63","46","64","56","65","66","67","76","68","86","69","96","15","51","24","42","33","88","79","97"] },
-    { name: "C7, T7", excelMax: 21, nums: ["07","70","17","71","27","72","37","73","47","74","57","75","67","76","77","78","87","79","97","16","61","25","52","34","43","89","98"] },
-    { name: "C8, T8", excelMax: 34, nums: ["08","80","18","81","28","82","38","83","48","84","58","85","68","86","78","87","88","89","98","17","71","26","62","35","53","44","99"] },
-    { name: "C9, T9", excelMax: 27, nums: ["09","90","19","91","29","92","39","93","49","94","59","95","69","96","79","97","89","98","99","18","81","27","72","36","63","45","54"] }
+    { name: "C4,T4", excelMax: 32, nums: ["04","40","14","41","24","42","34","43","44","45","54","46","64","47","74","48","84","49","94","13","31","22","59","95","68","86","77"] },
+    { name: "C5,T5", excelMax: 37, nums: ["05","50","15","51","25","52","35","53","45","54","55","56","65","57","75","58","85","59","95","14","41","23","32","69","96","78","87"] },
+    { name: "C6,T6", excelMax: 27, nums: ["06","60","16","61","26","62","36","63","46","64","56","65","66","67","76","68","86","69","96","15","51","24","42","33","88","79","97"] },
+    { name: "C7,T7", excelMax: 21, nums: ["07","70","17","71","27","72","37","73","47","74","57","75","67","76","77","78","87","79","97","16","61","25","52","34","43","89","98"] },
+    { name: "C8,T8", excelMax: 34, nums: ["08","80","18","81","28","82","38","83","48","84","58","85","68","86","78","87","88","89","98","17","71","26","62","35","53","44","99"] },
+    { name: "C9,T9", excelMax: 27, nums: ["09","90","19","91","29","92","39","93","49","94","59","95","69","96","79","97","89","98","99","18","81","27","72","36","63","45","54"] }
   ];
+  return list.sort((x, y) => x.name.localeCompare(y.name));
 }
 
 

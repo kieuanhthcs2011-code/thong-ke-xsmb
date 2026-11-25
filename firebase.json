@@ -6,7 +6,13 @@
       ".firebaserc",
       "**/.*",
       "**/node_modules/**",
-      "update_xsmb.py"
+      "**/__pycache__/**",
+      "update_xsmb.py",
+      "*.md"
+    ],
+    "headers": [
+      { "source": "/data.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "**/*.@(html|js|css)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
     ]
   }
 }

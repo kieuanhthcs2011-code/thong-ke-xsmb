@@ -88,8 +88,8 @@
     <div class="toolbar" style="margin-bottom:12px; border-radius:6px;">
       <div class="legend">
         <span><i class="swatch" style="background:var(--green)"></i><b>Vừa về hôm nay (0 ngày)</b></span>
-        <span><i class="swatch" style="background:var(--yellow)"></i><b>Sắp chạm Max (≥ 75% chu kỳ)</b></span>
-        <span><i class="swatch" style="background:#ff4d4f"></i><b>Chạm / Vượt Max chu kỳ</b></span>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Sắp chạm Max (≥ 72% Max hiệu lực)</b></span>
+        <span><i class="swatch" style="background:#ff4d4f"></i><b>Chạm / Vượt Max hiệu lực</b> (Max hiệu lực = max của Max chuẩn và các chu kỳ đã về; chuỗi gan đang chạy không làm tăng Max)</span>
       </div>
       <div class="controls">
         <label><b>Khung ngày theo dõi chi tiết:</b>
@@ -152,6 +152,11 @@
             <label>Đơn giá (nghìn): <input type="number" id="calc-gia" class="calc-input" value="1" step="0.5" oninput="renderMoneyCalc()"></label>
           </div>
           <div style="overflow-x:auto;"><table class="stat-table" id="tbl-nuoi-tien"></table></div>
+        </div>
+
+        <div class="card-panel">
+          <div class="card-header"><span>4b. LỊCH NUÔI THEO NGÀY TRONG THÁNG (BB–BJ)</span><span id="lich-today" style="font-size:11px; font-weight:normal;"></span></div>
+          <div style="overflow-x:auto;"><table class="stat-table" id="tbl-lich-thang"></table></div>
         </div>
 
         <div class="card-panel">
@@ -237,6 +242,25 @@
       h += `<tr><td><b>Tổng gốc</b></td>${costs.map(c => `<td>${c.toLocaleString('vi-VN')}k</td>`).join("")}</tr>`;
       h += `<tr class="bg-green"><td><b>Lãi nếu nổ</b></td>${profits.map(p => `<td>+${p.toLocaleString('vi-VN')}k</td>`).join("")}</tr></tbody>`;
       document.getElementById("tbl-nuoi-tien").innerHTML = h;
+      renderLichNuoi();
+    }
+
+    function renderLichNuoi() {
+      if (!globalData) return;
+      const hist = getAllHistoricalGDB(getNormalizedWeeks(globalData.weeks_gdb));
+      const today = new Date().getDate();
+      document.getElementById("lich-today").innerText = `Hôm nay: ngày ${today}`;
+      let h = `<thead><tr><th>Khung ngày</th><th>Dàn nuôi</th><th>Số con</th><th>Gan</th><th>Max</th><th>Trạng thái</th></tr></thead><tbody>`;
+      getLichNuoiThang().forEach(it => {
+        const ev = evaluateDan(hist, it.dan.nums, it.dan.excelMax);
+        const active = today >= it.from && today <= it.to;
+        const lv = DAN_LEVEL[ev.level];
+        h += `<tr class="${active ? 'bg-yellow' : ''}"><td><b>${it.from} → ${it.to === 31 ? "hết tháng" : it.to}</b>${active ? " ◀ đang nuôi" : ""}</td>
+          <td style="text-align:left;">${it.label}</td><td>${it.dan.count}s</td>
+          <td><b>${ev.gan === 0 ? "vừa về" : ev.gan + " ngày"}</b></td><td>${ev.effMax}</td>
+          <td><span class="badge-status ${lv.badge}">${lv.text}</span></td></tr>`;
+      });
+      document.getElementById("tbl-lich-thang").innerHTML = h + `</tbody>`;
     }
 
     function getCustomDans() {
@@ -272,7 +296,7 @@
 
       // Precompute stats for every dàn so we can attach "gan X ngày" directly to the name
       const enriched = getDanConfigs().map(cfg => {
-        const st = computeDanStats(histGDB, new Set(cfg.nums));
+        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
         return { ...cfg, st };
       });
 
@@ -296,7 +320,6 @@
 
       configs.forEach((cfg, idx) => {
         const st = cfg.st;
-        const maxRef = Math.max(cfg.excelMax, st.maxObserved);
         let badge = `<span class="badge-status st-normal">Đang theo dõi</span>`, cls = "";
         let ganPillClass = "gan-inline-badge";
         let ganLabel = `gan ${st.daysSince} ngày`;
@@ -306,10 +329,10 @@
           cls = "bg-green";
           ganPillClass = "gan-inline-badge is-zero";
           ganLabel = `vừa về (0 ngày)`;
-        } else if (st.daysSince >= cfg.excelMax) {
+        } else if (st.level === "max") {
           badge = `<span class="badge-status st-max">Chạm/Vượt Max!</span>`;
           cls = "bg-red-alert";
-        } else if (st.daysSince >= Math.floor(cfg.excelMax * 0.72)) {
+        } else if (st.level === "watch") {
           badge = `<span class="badge-status st-watch">Sắp chạm Max</span>`;
           cls = "bg-yellow";
           ganPillClass = "gan-inline-badge is-warn";
@@ -333,7 +356,7 @@
           <td><b>${cfg.count}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${Math.max(cfg.excelMax, st.maxObserved)} ngày</b> <span class="de-sub">(Thực tế lịch sử: ${st.maxObserved}ng)</span></td>
+          <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved}${st.over ? ' · đang vượt +' + st.over : ''})</span></td>
           <td>${badge}</td>
         </tr>`;
       });
@@ -390,24 +413,23 @@
         <th>Trạng thái</th>
       </tr></thead><tbody>`;
       ctConfigs.forEach(item => {
-        const st = computeDanStats(histGDB, new Set(item.nums));
-        const mx = item.excelMax;
+        const st = evaluateDan(histGDB, item.nums, item.excelMax);
         let cls = "", badge = `<span class="badge-status st-normal">Bình thường</span>`;
         let gBadge = `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
         if (st.daysSince === 0) {
           cls = "bg-green";
           badge = `<span class="badge-status st-hit">Vừa nổ (${st.lastHitDe})</span>`;
           gBadge = `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`;
-        } else if (st.daysSince >= mx) {
+        } else if (st.level === "max") {
           cls = "bg-red-alert";
           badge = `<span class="badge-status st-max">Chạm/Vượt Max!</span>`;
-        } else if (st.daysSince >= Math.floor(mx * 0.72)) {
+        } else if (st.level === "watch") {
           cls = "bg-yellow";
           badge = `<span class="badge-status st-watch">Sắp chạm Max</span>`;
           gBadge = `<span class="gan-inline-badge is-warn">gan ${st.daysSince} ngày</span>`;
         }
         hCt += `<tr class="${cls}">
-          <td style="font-size:14px;"><b>${Math.max(mx, st.maxObserved)}</b> <span class="de-sub">(Thực tế: ${st.maxObserved})</span></td>
+          <td style="font-size:14px;"><b>${st.effMax}</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved})</span></td>
           <td style="text-align:left;">
             <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
               ${item.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
@@ -431,14 +453,17 @@
       if (!customList.length) {
         document.getElementById("tbl-custom-dan").innerHTML = `<tr><td style="color:#666; padding:10px;">Chưa có dàn cá nhân nào. Nhập dàn ở trên để tự đếm ngày về / ngày chưa về mỗi tối!</td></tr>`;
       } else {
-        let hCus = `<thead><tr><th>Tên dàn (Kèm số ngày gan)</th><th>Dàn số</th><th>Ngày về</th><th>Chưa về</th><th>Khung</th><th>Xóa</th></tr></thead><tbody>`;
+        let hCus = `<thead><tr><th>Tên dàn (Kèm số ngày gan)</th><th>Dàn số</th><th>Ngày về</th><th>Chưa về</th><th>Khung</th><th>Trùng dàn</th><th>Xóa</th></tr></thead><tbody>`;
         customList.forEach((item, idx) => {
+          const others = customList.filter((_, j) => j !== idx).map(o => ({ name: "Dàn cá nhân: " + o.name, nums: o.nums }));
+          const dups = findDuplicateDans(item.nums, others);
+          const dupHtml = dups.length ? `<span style="color:#b91c1c; font-weight:700;">⚠ Trùng: ${dups.join("; ")}</span>` : `<span style="color:#15803d;">Riêng biệt</span>`;
           const st = computeDanStats(histGDB, new Set(item.nums));
           const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= item.maxDays ? "bg-red-alert" : "");
           const gBadge = st.daysSince === 0
             ? `<span class="gan-inline-badge is-zero">vừa về</span>`
             : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
-          hCus += `<tr class="${cls}"><td style="text-align:left;"><b>${item.name}</b> — ${gBadge}</td><td class="dan-nums-cell">${item.nums.join(", ")}</td><td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td><td><b>${st.daysSince} ngày</b></td><td>${item.maxDays} ngày</td><td><button onclick="removeCustomDan(${idx})" style="cursor:pointer; color:red; border:none; background:none; font-weight:bold;">✕</button></td></tr>`;
+          hCus += `<tr class="${cls}"><td style="text-align:left;"><b>${item.name}</b> — ${gBadge}</td><td class="dan-nums-cell">${item.nums.join(", ")}</td><td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td><td><b>${st.daysSince} ngày</b></td><td>${item.maxDays} ngày</td><td style="text-align:left; font-size:11px;">${dupHtml}</td><td><button onclick="removeCustomDan(${idx})" style="cursor:pointer; color:red; border:none; background:none; font-weight:bold;">✕</button></td></tr>`;
         });
         document.getElementById("tbl-custom-dan").innerHTML = hCus + `</tbody>`;
       }
@@ -454,7 +479,7 @@
 
       // 6. Render bảng các dàn trong ảnh mới (BC -> BT) & cảnh báo dàn trùng nhau
       const f3ListAll = getImageF3F9A1Configs().map(cfg => {
-        const st = computeDanStats(histGDB, new Set(cfg.nums));
+        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
         return { ...cfg, st };
       });
       const dupCount = f3ListAll.filter(x => !!x.dupOf).length;
@@ -482,11 +507,8 @@
 
       f3List.forEach((cfg, idx) => {
         const st = cfg.st;
-        const trueMaxF3 = Math.max(cfg.excelMax, st.maxObserved);
-        let cls = "";
-        if (st.daysSince === 0) cls = "bg-green";
-        else if (st.daysSince >= trueMaxF3) cls = "bg-red-alert";
-        else if (st.daysSince >= Math.floor(trueMaxF3 * 0.72)) cls = "bg-yellow";
+        const trueMaxF3 = st.effMax;
+        const cls = DAN_LEVEL[st.level].cls;
 
         const gBadge = st.daysSince === 0
           ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
@@ -524,11 +546,11 @@
         <th>4 Số Trong Bộ</th>
         <th>Ngày về gần nhất</th>
         <th>Số ngày chưa về</th>
-        <th>Max thực tế</th>
+        <th>Max (chuẩn · thực tế)</th>
       </tr></thead><tbody>`;
       bkList.forEach((cfg, idx) => {
-        const st = computeDanStats(histGDB, new Set(cfg.nums));
-        const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= st.maxObserved ? "bg-red-alert" : (st.daysSince >= 15 ? "bg-yellow" : ""));
+        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
+        const cls = DAN_LEVEL[st.level].cls;
         const gBadge = st.daysSince === 0
           ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
           : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
@@ -538,7 +560,7 @@
           <td><b>${cfg.nums.join(", ")}</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td><b>${st.maxObserved} ngày</b></td>
+          <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved})</span></td>
         </tr>`;
       });
       const bkTbl = document.getElementById("tbl-bo-kep-4s");
