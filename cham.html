@@ -128,7 +128,7 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20261125_2"></script>
   <script>
     let currentGroup = 'all';
 
@@ -175,20 +175,25 @@
         { id: "tach_AE", kind: "cham", getVal: r => r.AE, dIdx: 6 },
         { id: "cham_AM", kind: "tong", getVal: r => r.AM, dIdx: 2 },
         { id: "cham_AN", kind: "tong", getVal: r => r.AN, dIdx: 5 },
-        { id: "cham_AO", kind: "tong", getVal: r => r.AO, dIdx: 6 },
-        { id: "cham_AP", kind: "cham", getVal: r => r.AP, dIdx: 3 },
-        { id: "cham_AQ", kind: "cham", getVal: r => r.AQ, dIdx: 4 },
-        { id: "cham_AR", kind: "cham", getVal: r => r.AR, dIdx: 5 },
-        { id: "cham_AS", kind: "cham", getVal: r => r.AS, dIdx: 6 },
-        { id: "cham_AT", kind: "cham", getVal: r => r.AT, dIdx: 6 },
-        { id: "cham_AU", kind: "cham", getVal: r => r.AU, dIdx: 6 },
-        { id: "cham_AV", kind: "cham", getVal: r => r.AV, dIdx: 6 },
         { id: "t7_dpe", kind: "cham", getVal: r => r.Z, dIdx: 5 },
         { id: "t7_dme", kind: "cham", getVal: r => r.AA, dIdx: 5 },
         { id: "t7_tde", kind: "tong", getVal: r => r.Z, dIdx: 5 },
+        { id: "cham_AR", kind: "cham", getVal: r => r.AR, dIdx: 5 },
+        { id: "t7_g71_g74", kind: "cham", getVal: r => r.T7_G71_G74, dIdx: 5 },
+        { id: "t7_sum_d", kind: "cham", getVal: r => r.T7_SUM_D, dIdx: 5 },
+        { id: "t7_sum_b", kind: "cham", getVal: r => r.T7_SUM_B, dIdx: 5 },
+        { id: "t7_sum_c", kind: "cham", getVal: r => r.T7_SUM_C, dIdx: 5 },
+        { id: "cham_AO", kind: "tong", getVal: r => r.AO, dIdx: 6 },
         { id: "cn_dpe", kind: "cham", getVal: r => r.AD, dIdx: 6 },
         { id: "cn_dme", kind: "cham", getVal: r => r.AE, dIdx: 6 },
         { id: "cn_tde", kind: "tong", getVal: r => r.AD, dIdx: 6 },
+        { id: "cn_bg1", kind: "cham", getVal: r => r.CN_BG1, dIdx: 6 },
+        { id: "cham_AS", kind: "cham", getVal: r => r.CN_G71_G74, dIdx: 6 },
+        { id: "cham_AT", kind: "cham", getVal: r => r.AT, dIdx: 6 },
+        { id: "cham_AU", kind: "cham", getVal: r => r.AU, dIdx: 6 },
+        { id: "cham_AV", kind: "cham", getVal: r => r.AV, dIdx: 6 },
+        { id: "cham_AP", kind: "cham", getVal: r => r.AP, dIdx: 3 },
+        { id: "cham_AQ", kind: "cham", getVal: r => r.AQ, dIdx: 4 },
         { id: "pcham_0", kind: "cham", getVal: r => r.AX, dIdx: 0 },
         { id: "pcham_1", kind: "cham", getVal: r => r.AY, dIdx: 1 },
         { id: "pcham_2", kind: "cham", getVal: r => r.AZ, dIdx: 2 },
@@ -258,7 +263,7 @@
       h += `<th colspan="7" class="th-gdb">GĐB Gốc 7 Ngày (Cột AF → AL)</th>`;
       if (showCham) {
         h += `<th rowspan="2" class="th-cham-ref">Chạm 2 Số Cuối<br><small>(7 Ngày Sau)</small></th>`;
-        h += `<th colspan="16">Cầu Chạm & Cộng Dồn Tuần (T7 & CN)</th>`;
+        h += `<th colspan="21">Cầu Chạm & Cộng Dồn Tuần (9 Cột Thứ 7 &amp; 9 Cột Chủ Nhật Đối Xứng)</th>`;
       }
       if (showPascal) {
         h += `<th colspan="7" class="th-sum-cham">Tổng 2 Số Pascal — So Chạm 7N Sau (AX → BD)</th>`;
@@ -287,19 +292,27 @@
       if (showCham) {
         const chamCols = [
           ["c(T4)", "cham_AM", "Tổng · T4", ""],
+          // 9 cột Thứ 7 (T7)
           ["c(T7)", "cham_AN", "Tổng · T7", "th-t7-soft"],
           ["d+e(T7)", "t7_dpe", "Chạm · T7", "th-t7-soft"],
           ["d-e(T7)", "t7_dme", "Chạm · T7", "th-t7-soft"],
           ["Tổng Đề(T7)", "t7_tde", "Tổng · T7", "th-t7-soft"],
           ["b(G1-T7)", "cham_AR", "Chạm · T7", "th-t7-soft"],
+          ["b(G7-1)+a(G7-4) (T7)", "t7_g71_g74", "Chạm · T7", "th-t7-soft"],
+          ["Tổng d(7N) (T7)", "t7_sum_d", "Chạm · T7", "th-t7-soft"],
+          ["Tổng b(7N) (T7)", "t7_sum_b", "Chạm · T7", "th-t7-soft"],
+          ["Tổng c(7N) (T7)", "t7_sum_c", "Chạm · T7", "th-t7-soft"],
+          // 9 cột Chủ Nhật (CN) — cấu trúc giống hệt Thứ 7, lấy dữ liệu Chủ Nhật
           ["c(CN)", "cham_AO", "Tổng · CN", "th-cn-soft"],
           ["d+e(CN)", "cn_dpe", "Chạm · CN", "th-cn-soft"],
           ["d-e(CN)", "cn_dme", "Chạm · CN", "th-cn-soft"],
           ["Tổng Đề(CN)", "cn_tde", "Tổng · CN", "th-cn-soft"],
+          ["b(G1-CN)", "cn_bg1", "Chạm · CN", "th-cn-soft"],
           ["b(G7-1)+a(G7-4) (CN)", "cham_AS", "Chạm · CN", "th-cn-soft"],
           ["Tổng d(7N) (CN)", "cham_AT", "Chạm · CN", "th-cn-soft"],
           ["Tổng b(7N) (CN)", "cham_AU", "Chạm · CN", "th-cn-soft"],
           ["Tổng c(7N) (CN)", "cham_AV", "Chạm · CN", "th-cn-soft"],
+          // Các cột phụ T5, T6
           ["e+1(T5)", "cham_AP", "Chạm · T5", ""],
           ["e-1(T6)", "cham_AQ", "Chạm · T6", ""]
         ];
@@ -430,22 +443,30 @@
         if (showCham) {
           h += `<td class="td-cham-ref">${chamRefLabel}</td>`;
           const valsCham = [
-            [r.AM, 2, 'tong', ""],
-            [r.AN, 5, 'tong', "td-t7-soft"],
-            [r.Z,  5, 'cham', "td-t7-soft"],
-            [r.AA, 5, 'cham', "td-t7-soft"],
-            [r.Z,  5, 'tong', "td-t7-soft"],
-            [r.AR, 5, 'cham', "td-t7-soft"],
-            [r.AO, 6, 'tong', "td-cn-soft"],
-            [r.AD, 6, 'cham', "td-cn-soft"],
-            [r.AE, 6, 'cham', "td-cn-soft"],
-            [r.AD, 6, 'tong', "td-cn-soft"],
-            [r.AS, 6, 'cham', "td-cn-soft"],
-            [r.AT, 6, 'cham', "td-cn-soft"],
-            [r.AU, 6, 'cham', "td-cn-soft"],
-            [r.AV, 6, 'cham', "td-cn-soft"],
-            [r.AP, 3, 'cham', ""],
-            [r.AQ, 4, 'cham', ""]
+            [r.AM,         2, 'tong', ""],
+            // 9 cột Thứ 7 (T7)
+            [r.AN,         5, 'tong', "td-t7-soft"],
+            [r.Z,          5, 'cham', "td-t7-soft"],
+            [r.AA,         5, 'cham', "td-t7-soft"],
+            [r.Z,          5, 'tong', "td-t7-soft"],
+            [r.AR,         5, 'cham', "td-t7-soft"],
+            [r.T7_G71_G74, 5, 'cham', "td-t7-soft"],
+            [r.T7_SUM_D,   5, 'cham', "td-t7-soft"],
+            [r.T7_SUM_B,   5, 'cham', "td-t7-soft"],
+            [r.T7_SUM_C,   5, 'cham', "td-t7-soft"],
+            // 9 cột Chủ Nhật (CN)
+            [r.AO,         6, 'tong', "td-cn-soft"],
+            [r.AD,         6, 'cham', "td-cn-soft"],
+            [r.AE,         6, 'cham', "td-cn-soft"],
+            [r.AD,         6, 'tong', "td-cn-soft"],
+            [r.CN_BG1,     6, 'cham', "td-cn-soft"],
+            [r.CN_G71_G74, 6, 'cham', "td-cn-soft"],
+            [r.AT,         6, 'cham', "td-cn-soft"],
+            [r.AU,         6, 'cham', "td-cn-soft"],
+            [r.AV,         6, 'cham', "td-cn-soft"],
+            // Các cột phụ T5, T6
+            [r.AP,         3, 'cham', ""],
+            [r.AQ,         4, 'cham', ""]
           ];
           h += valsCham.map(([v, dI, m, sCls]) => renderAmAvCell(v, dI, m, sCls)).join("");
         }

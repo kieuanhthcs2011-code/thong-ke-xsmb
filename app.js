@@ -230,7 +230,12 @@ function auxCols(wk) {
     if (sat.g7[0] && sat.g7[3] && sat.g7[0].length >= 2 && sat.g7[3].length >= 2)
       out.as_g71_g74 = String((dg(sat.g7[0], 1) + dg(sat.g7[3], 0)) % 10);
   }
-  if (sun && wk.nums[6]) out.g1cn = String((dg(sun.g1, 0) + dg(sun.g1, 1)) % 10);
+  if (sun && wk.nums[6]) {
+    out.g1cn = String((dg(sun.g1, 0) + dg(sun.g1, 1)) % 10);
+    out.cn_bg1 = sun.g1[1];
+    if (sun.g7[0] && sun.g7[3] && sun.g7[0].length >= 2 && sun.g7[3].length >= 2)
+      out.cn_g71_g74 = String((dg(sun.g7[0], 1) + dg(sun.g7[3], 0)) % 10);
+  }
   return out;
 }
 
@@ -1001,10 +1006,46 @@ function computeChamSheetRow(wk, prevWk, auxMap, dailyPrizesList) {
   // CN (AL = n[6])
   const b8 = dig(n[6], 1), c8 = dig(n[6], 2), d8 = dig(n[6], 3), e8 = dig(n[6], 4);
 
-  // Cộng dồn 7 ngày trong tuần (AT, AU, AV)
+  // Bổ sung G1/G7 Chủ Nhật từ daily_prizes nếu chưa có trong daily_aux
+  if (Array.isArray(dailyPrizesList) && wk.mDt) {
+    const sunDt = new Date(wk.mDt);
+    sunDt.setDate(wk.mDt.getDate() + 6);
+    const sunStr = formatVNDate(sunDt);
+    const sunRec = dailyPrizesList.find(d => d.date === sunStr);
+    if (sunRec && Array.isArray(sunRec.prizes) && sunRec.prizes.length >= 2) {
+      const g1Sun = sunRec.prizes[1] || "";
+      if (g1Sun.length >= 5 && !aux.cn_bg1) aux.cn_bg1 = g1Sun[1];
+      if (sunRec.prizes.length >= 27 && !aux.cn_g71_g74) {
+        const g71 = sunRec.prizes[23] || "";
+        const g74 = sunRec.prizes[26] || "";
+        if (g71.length >= 2 && g74.length >= 2) {
+          aux.cn_g71_g74 = String((parseInt(g71[1], 10) + parseInt(g74[0], 10)) % 10);
+        }
+      }
+    }
+    const satDt2 = new Date(wk.mDt);
+    satDt2.setDate(wk.mDt.getDate() + 5);
+    const satRec2 = dailyPrizesList.find(d => d.date === formatVNDate(satDt2));
+    if (satRec2 && Array.isArray(satRec2.prizes) && satRec2.prizes.length >= 27 && !aux.as_g71_g74) {
+      const g71s = satRec2.prizes[23] || "";
+      const g74s = satRec2.prizes[26] || "";
+      if (g71s.length >= 2 && g74s.length >= 2) {
+        aux.as_g71_g74 = String((parseInt(g71s[1], 10) + parseInt(g74s[0], 10)) % 10);
+      }
+    }
+  }
+
+  // Cộng dồn 7 ngày kết thúc Chủ Nhật (T2 -> CN tuần này: AT, AU, AV)
   const dList = [d2, d3, d4, d5, d6, d7, d8];
   const bList = [b2, b3, b4, b5, b6, b7, b8];
   const cList = [c2, c3, c4, c5, c6, c7, c8];
+
+  // Cộng dồn 7 ngày kết thúc Thứ 7 (CN tuần trước + T2 -> T7 tuần này)
+  const prevSun = prevWk && Array.isArray(prevWk.nums) ? (prevWk.nums[6] || "") : "";
+  const dPrev8 = dig(prevSun, 3), bPrev8 = dig(prevSun, 1), cPrev8 = dig(prevSun, 2);
+  const dListSat = [dPrev8, d2, d3, d4, d5, d6, d7];
+  const bListSat = [bPrev8, b2, b3, b4, b5, b6, b7];
+  const cListSat = [cPrev8, c2, c3, c4, c5, c6, c7];
 
   const sumDigits = (arr) => arr.every(v => v !== null) ? String(arr.reduce((a, b) => a + b, 0) % 10) : "";
 
@@ -1030,6 +1071,10 @@ function computeChamSheetRow(wk, prevWk, auxMap, dailyPrizesList) {
     AP: e5 !== null ? String((e5 + 1) % 10) : "",
     AQ: e6 !== null ? String(((e6 - 1) % 10 + 10) % 10) : "",
     AR: aux.ar_bg1t7, AS: aux.as_g71_g74,
+    T7_G71_G74: aux.as_g71_g74 || "",
+    T7_SUM_D: sumDigits(dListSat), T7_SUM_B: sumDigits(bListSat), T7_SUM_C: sumDigits(cListSat),
+    CN_BG1: aux.cn_bg1 || "",
+    CN_G71_G74: aux.cn_g71_g74 || "",
     AT: sumDigits(dList), AU: sumDigits(bList), AV: sumDigits(cList),
     // Nhóm 5: Tổng 2 số Pascal (AX..BD)
     AX: pascals[0].sum2, AY: pascals[1].sum2, AZ: pascals[2].sum2,
