@@ -522,22 +522,25 @@
       </tr></thead><tbody>`;
       ctConfigs.forEach(item => {
         const st = evaluateDan(histGDB, item.nums, item.excelMax);
+        const mk = computeMketquaCycle(histGDB, item.nums);
+        const ganMaxVal = mk.maxInclHit > 0 ? mk.maxInclHit : (st.maxObserved > 0 ? st.maxObserved : st.ref);
+        const ganMaxSpan = mk.maxInclHit > 0 ? mk.maxInclSpan : (st.maxSpan || "");
         let cls = "", badge = `<span class="badge-status st-normal">Bình thường</span>`;
         let gBadge = `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
         if (st.daysSince === 0) {
           cls = "bg-green";
           badge = `<span class="badge-status st-hit">Vừa nổ (${st.lastHitDe})</span>`;
           gBadge = `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`;
-        } else if (st.level === "max") {
+        } else if (st.daysSince >= ganMaxVal) {
           cls = "bg-red-alert";
           badge = `<span class="badge-status st-max">Chạm/Vượt Max!</span>`;
-        } else if (st.level === "watch") {
+        } else if (st.daysSince >= Math.floor(ganMaxVal * WATCH_RATIO)) {
           cls = "bg-yellow";
           badge = `<span class="badge-status st-watch">Sắp chạm Max</span>`;
           gBadge = `<span class="gan-inline-badge is-warn">gan ${st.daysSince} ngày</span>`;
         }
         hCt += `<tr class="${cls}">
-          <td style="font-size:14px;"><b>${st.realMax} ngày</b> <span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
+          <td style="font-size:14px;"><b>${ganMaxVal} ngày</b> <span class="de-sub">${ganMaxSpan}</span></td>
           <td style="text-align:left;">
             <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
               ${item.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
