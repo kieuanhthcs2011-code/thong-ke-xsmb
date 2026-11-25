@@ -185,6 +185,17 @@
       </div>
     </div>
 
+    <!-- BẢNG 7: 5 BỘ SỐ KÉP 4 SỐ (TĂNG/GIẢM 5 ĐƠN VỊ: 00, 11, 22, 33, 44) -->
+    <div class="card-panel" style="margin-top:14px;">
+      <div class="card-header">
+        <span>7. BỘ SỐ 00, 11, 22, 33, 44 (MỖI BỘ 4 SỐ TĂNG/GIẢM 5 ĐƠN VỊ)</span>
+        <span style="font-size:11px; font-weight:normal;">00-05-50-55 | 11-16-61-66 | 22-27-72-77 | 33-38-83-88 | 44-49-94-99</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="stat-table" id="tbl-bo-kep-4s"></table>
+      </div>
+    </div>
+
     <div class="page-footer-nav">
       <a href="tuan.html" class="q-btn">← Quay lại Trang 1: GĐB Theo Tuần</a>
       <a href="bang35.html" class="q-btn">Tiếp theo: Trang 3 - Bảng 35 Cột (Theo Tổng) →</a>
@@ -322,7 +333,7 @@
           <td><b>${cfg.count}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td>${cfg.excelMax} ngày <span class="de-sub">(Thực tế: ${maxRef}ng)</span></td>
+          <td><b>${st.maxObserved} ngày</b> <span class="de-sub">(Ảnh/R: ${cfg.excelMax}ng)</span></td>
           <td>${badge}</td>
         </tr>`;
       });
@@ -338,10 +349,11 @@
         const rowCells = setsArr.map((sSet, cIdx) => {
           if (sSet.has(item.de)) {
             streaks[cIdx] = 0;
-            return { hit: true, text: `Về (${item.de})` };
+            return { hit: true, ganHigh: false, text: `Về (${item.de})` };
           } else {
             streaks[cIdx]++;
-            return { hit: false, text: `${streaks[cIdx]}` };
+            const gVal = streaks[cIdx];
+            return { hit: false, ganHigh: gVal >= 15, text: `${gVal}` };
           }
         });
         dailyHistoryRows.push({ date: item.date, db: item.db, de: item.de, cells: rowCells });
@@ -362,7 +374,7 @@
         hMat += `<tr>
           <td class="week-col"><b>${r.date}</b></td>
           <td>${r.db} (<b>${r.de}</b>)</td>
-          ${r.cells.map(c => c.hit ? `<td class="bg-green">${c.text}</td>` : `<td>${c.text}</td>`).join("")}
+          ${r.cells.map(c => c.hit ? `<td class="bg-green">${c.text}</td>` : (c.ganHigh ? `<td style="background:#fde047; color:#991b1b; font-weight:800;">${c.text}</td>` : `<td>${c.text}</td>`)).join("")}
         </tr>`;
       });
       document.getElementById("tbl-nuoi-daily-matrix").innerHTML = hMat + `</tbody>`;
@@ -395,7 +407,7 @@
           gBadge = `<span class="gan-inline-badge is-warn">gan ${st.daysSince} ngày</span>`;
         }
         hCt += `<tr class="${cls}">
-          <td style="font-size:14px;"><b>${mx}</b></td>
+          <td style="font-size:14px;"><b>${st.maxObserved}</b> <span class="de-sub">(Ảnh: ${mx})</span></td>
           <td style="text-align:left;">
             <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
               ${item.name} — ${gBadge} <small style="color:#0969da;">[Số ▾]</small>
@@ -472,8 +484,8 @@
         const st = cfg.st;
         let cls = "";
         if (st.daysSince === 0) cls = "bg-green";
-        else if (st.daysSince >= cfg.excelMax) cls = "bg-red-alert";
-        else if (st.daysSince >= Math.floor(cfg.excelMax * 0.72)) cls = "bg-yellow";
+        else if (st.daysSince >= st.maxObserved || st.daysSince >= 25) cls = "bg-red-alert";
+        else if (st.daysSince >= 15 || st.daysSince >= Math.floor(cfg.excelMax * 0.72)) cls = "bg-yellow";
 
         const gBadge = st.daysSince === 0
           ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
@@ -497,11 +509,40 @@
           <td><b>${cfg.nums.length}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
-          <td>${cfg.excelMax}ng</td>
+          <td><b>${st.maxObserved}ng</b> <span class="de-sub">(Ảnh: ${cfg.excelMax}ng)</span></td>
           <td style="text-align:left;">${dupTag}</td>
         </tr>`;
       });
       document.getElementById("tbl-f3f9-dans").innerHTML = hF3 + `</tbody>`;
+
+      // 7. Render 5 bộ số 4 số (00, 11, 22, 33, 44)
+      const bkList = getBoKep4SoConfigs();
+      let hBk = `<thead><tr>
+        <th>STT</th>
+        <th>Bộ Số (Kèm số ngày gan)</th>
+        <th>4 Số Trong Bộ</th>
+        <th>Ngày về gần nhất</th>
+        <th>Số ngày chưa về</th>
+        <th>Max thực tế</th>
+      </tr></thead><tbody>`;
+      bkList.forEach((cfg, idx) => {
+        const st = computeDanStats(histGDB, new Set(cfg.nums));
+        const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= st.maxObserved ? "bg-red-alert" : (st.daysSince >= 15 ? "bg-yellow" : ""));
+        const gBadge = st.daysSince === 0
+          ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
+          : `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
+        hBk += `<tr class="${cls}">
+          <td>${idx + 1}</td>
+          <td style="text-align:left;"><b>${cfg.name}</b> — ${gBadge}</td>
+          <td><b>${cfg.nums.join(", ")}</b></td>
+          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+          <td><b>${st.maxObserved} ngày</b></td>
+        </tr>`;
+      });
+      const bkTbl = document.getElementById("tbl-bo-kep-4s");
+      if (bkTbl) bkTbl.innerHTML = hBk + `</tbody>`;
+
 
     };
     loadSharedData(renderPage);

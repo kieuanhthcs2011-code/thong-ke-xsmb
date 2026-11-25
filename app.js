@@ -82,6 +82,7 @@ function computeDanStats(histGDB, targetSet) {
   let daysSince = 0, lastHitDate = "Chưa thấy", lastHitDe = "--", maxObserved = 0, curStreak = 0;
   for (let i = 0; i < histGDB.length; i++) {
     const item = histGDB[i];
+    if (!item || !item.de || !/^\d{2}$/.test(item.de)) continue;
     if (targetSet.has(item.de)) {
       if (curStreak > maxObserved) maxObserved = curStreak;
       curStreak = 0;
@@ -94,6 +95,16 @@ function computeDanStats(histGDB, targetSet) {
   daysSince = curStreak;
   if (curStreak > maxObserved) maxObserved = curStreak;
   return { daysSince, lastHitDate, lastHitDe, maxObserved };
+}
+
+function getBoKep4SoConfigs() {
+  return [
+    { name: "Bộ 00 (4 số)", excelMax: 45, nums: ["00", "05", "50", "55"] },
+    { name: "Bộ 11 (4 số)", excelMax: 45, nums: ["11", "16", "61", "66"] },
+    { name: "Bộ 22 (4 số)", excelMax: 45, nums: ["22", "27", "72", "77"] },
+    { name: "Bộ 33 (4 số)", excelMax: 45, nums: ["33", "38", "83", "88"] },
+    { name: "Bộ 44 (4 số)", excelMax: 45, nums: ["44", "49", "94", "99"] }
+  ];
 }
 
 function getDanConfigs() {
