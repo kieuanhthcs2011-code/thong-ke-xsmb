@@ -91,15 +91,7 @@ function _weekItems(raw, baseMon) {
 }
 
 /* Trả về danh sách tuần (mới -> cũ), mỗi tuần {monday, mDt, label, nums[7]} */
-let _weeksMemo = { raw: null, daily: null, out: null };
 function getNormalizedWeeks(rawWeeks) {
-  const dailyRef = (typeof globalData !== "undefined" && globalData) ? globalData.daily_prizes : null;
-  if (_weeksMemo.out && _weeksMemo.raw === rawWeeks && _weeksMemo.daily === dailyRef) return _weeksMemo.out;
-  const out = _getNormalizedWeeksImpl(rawWeeks);
-  _weeksMemo = { raw: rawWeeks, daily: dailyRef, out };
-  return out;
-}
-function _getNormalizedWeeksImpl(rawWeeks) {
   const daily = (typeof globalData !== "undefined" && globalData) ? normalizeDailyPrizes(globalData.daily_prizes) : [];
   const dayKey = dt => formatVNDate(dt);
   let baseMon = new Date(2026, 10, 23);
@@ -284,6 +276,89 @@ function computeDanStats(histGDB, targetSet) {
 /* Đánh giá 1 dàn: Max hiệu lực = max(Max chuẩn/tham chiếu, Max thực tế của các chu kỳ đã về).
    Chuỗi gan hiện tại KHÔNG bao giờ làm tăng Max. level: hit | max | watch | normal */
 const WATCH_RATIO = 0.72;
+
+
+function getCustomDans() {
+  try {
+    const a = JSON.parse(localStorage.getItem("thongke_custom_dans") || "[]");
+    const b = JSON.parse(localStorage.getItem("xsmb_custom_dans_v1") || "[]");
+    const merged = Array.isArray(a) ? a.slice() : [];
+    if (Array.isArray(b) && b.length && !merged.length) return b;
+    return merged;
+  } catch (e) { return []; }
+}
+function saveCustomDans(list) {
+  localStorage.setItem("thongke_custom_dans", JSON.stringify(list));
+}
+
+function analyzeDanCyclesInRange(histGDB, nums, fromDateISO, toDateISO) {
+  const targetSet = new Set(nums);
+  const fromDt = fromDateISO ? new Date(fromDateISO + "T00:00:00") : null;
+  const toDt = toDateISO ? new Date(toDateISO + "T23:59:59") : null;
+
+  const filtered = histGDB.filter(item => {
+    if (!item || !item.de || !/^\d{2}$/.test(item.de)) return false;
+    if (!fromDt && !toDt) return true;
+    const d = parseVNDate(item.date);
+    if (fromDt && d < fromDt) return false;
+    if (toDt && d > toDt) return false;
+    return true;
+  });
+
+  let curStreak = 0;
+  let streakStartDate = filtered.length ? filtered[0].date : "";
+  let seenFirstHit = false;
+  let maxClosed = 0;
+  let maxSpan = "Chưa đủ 2 lần về";
+  let lastHitDate = "Chưa thấy";
+  let lastHitDe = "--";
+  let hitCount = 0;
+  const closedCycles = [];
+  const hitRecords = [];
+
+  for (let i = 0; i < filtered.length; i++) {
+    const item = filtered[i];
+    if (targetSet.has(item.de)) {
+      if (seenFirstHit) {
+        closedCycles.push({
+          days: curStreak,
+          from: streakStartDate,
+          to: item.date,
+          de: item.de
+        });
+        if (curStreak >= maxClosed) {
+          maxClosed = curStreak;
+          maxSpan = `${streakStartDate} → ${item.date} (về ${item.de})`;
+        }
+      }
+      seenFirstHit = true;
+      curStreak = 0;
+      streakStartDate = item.date;
+      lastHitDate = item.date;
+      lastHitDe = item.de;
+      hitCount++;
+      hitRecords.push({ date: item.date, db: item.db, de: item.de });
+    } else {
+      curStreak++;
+    }
+  }
+
+  closedCycles.sort((a, b) => b.days - a.days);
+  return {
+    totalDays: filtered.length,
+    fromDate: filtered.length ? filtered[0].date : "",
+    toDate: filtered.length ? filtered[filtered.length - 1].date : "",
+    daysSince: curStreak,
+    maxClosed,
+    maxSpan,
+    lastHitDate,
+    lastHitDe,
+    hitCount,
+    topCycles: closedCycles.slice(0, 5),
+    recentHits: hitRecords.slice(-15).reverse()
+  };
+}
+
 function evaluateDan(histGDB, nums, referenceMax) {
   const st = computeDanStats(histGDB, new Set(nums));
   const ref = Number(referenceMax) || 0;
@@ -444,12 +519,7 @@ function renderDanNumsPreview(nums, maxInline = 10) {
   </div>`;
 }
 
-let _danMonitorMemo = null;
 function getAllDanForMonitor() {
-  if (!_danMonitorMemo) _danMonitorMemo = _buildAllDanForMonitor();
-  return _danMonitorMemo.map(d => ({ ...d }));
-}
-function _buildAllDanForMonitor() {
   const sig = n => Array.from(new Set(n)).sort().join(",");
   const seen = new Set(), out = [];
   const add = (code, group, name, nums, ref) => {
@@ -505,35 +575,16 @@ function _buildAllDanForMonitor() {
   return out;
 }
 
-
-/* Thư viện Excel chỉ tải khi bấm "Xuất Excel" (trước đây chặn hiển thị mọi trang vì nằm trong <head>) */
-let _xlsxPromise = null;
-function ensureXLSX() {
-  if (typeof XLSX !== "undefined") return Promise.resolve();
-  if (_xlsxPromise) return _xlsxPromise;
-  const urls = [
-    "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js",
-    "https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"
-  ];
-  _xlsxPromise = new Promise((resolve, reject) => {
-    let i = 0;
-    const next = () => {
-      if (i >= urls.length) { _xlsxPromise = null; return reject(new Error("Không tải được thư viện Excel")); }
-      const s = document.createElement("script");
-      s.src = urls[i++]; s.onload = () => resolve(); s.onerror = () => { s.remove(); next(); };
-      document.head.appendChild(s);
-    };
-    next();
-  });
-  return _xlsxPromise;
-}
-async function exportFullWorkbook() {
-  if (!globalData) { alert("Đang tải dữ liệu, vui lòng đợi 2 giây!"); return; }
-  try { await ensureXLSX(); } catch (e) { alert("Không tải được thư viện Excel (kiểm tra mạng rồi thử lại)."); return; }
+function exportFullWorkbook() {
+  if (!globalData || typeof XLSX === "undefined") {
+    alert("Đang tải dữ liệu hoặc thư viện Excel, vui lòng đợi 2 giây!");
+    return;
+  }
   const wb = XLSX.utils.book_new();
   const borderStyle = { top: { style: "thin", color: { rgb: "BFBFBF" } }, bottom: { style: "thin", color: { rgb: "BFBFBF" } }, left: { style: "thin", color: { rgb: "BFBFBF" } }, right: { style: "thin", color: { rgb: "BFBFBF" } } };
   const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "1E569B" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderStyle };
   const baseCellStyle = { alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: borderStyle };
+  const grayDeStyle = { font: { bold: true, color: { rgb: "111827" } }, fill: { fgColor: { rgb: "E5E7EB" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderStyle };
   const yellowStyle = { font: { bold: true, color: { rgb: "C00000" } }, fill: { fgColor: { rgb: "FFF200" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderStyle };
   const greenStyle = { font: { bold: true, color: { rgb: "0F3D0F" } }, fill: { fgColor: { rgb: "92D050" } }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: borderStyle };
 
@@ -569,9 +620,9 @@ async function exportFullWorkbook() {
         const ch = num[k] !== undefined ? num[k] : "";
         if (ch !== "" && next7.hasFull7) {
           const isY = !next7.sumsSet.has(parseInt(ch, 10));
-          row.push({ v: parseInt(ch, 10), s: isY ? yellowStyle : baseCellStyle });
+          row.push({ v: parseInt(ch, 10), s: isY ? yellowStyle : ((k === 3 || k === 4) ? grayDeStyle : baseCellStyle) });
         } else {
-          row.push({ v: ch === "" ? "" : parseInt(ch, 10), s: baseCellStyle });
+          row.push({ v: ch === "" ? "" : parseInt(ch, 10), s: (ch !== "" && (k === 3 || k === 4)) ? grayDeStyle : baseCellStyle });
         }
       }
     }
@@ -595,9 +646,9 @@ async function exportFullWorkbook() {
         const ch = num[k] !== undefined ? num[k] : "";
         if (ch !== "" && next7.hasFull7) {
           const isY = !next7.chamSet.has(parseInt(ch, 10));
-          row.push({ v: parseInt(ch, 10), s: isY ? yellowStyle : baseCellStyle });
+          row.push({ v: parseInt(ch, 10), s: isY ? yellowStyle : ((k === 3 || k === 4) ? grayDeStyle : baseCellStyle) });
         } else {
-          row.push({ v: ch === "" ? "" : parseInt(ch, 10), s: baseCellStyle });
+          row.push({ v: ch === "" ? "" : parseInt(ch, 10), s: (ch !== "" && (k === 3 || k === 4)) ? grayDeStyle : baseCellStyle });
         }
       }
     }
@@ -653,7 +704,7 @@ async function exportFullWorkbook() {
 
 async function loadSharedData(onReadyCallback) {
   try {
-    const res = await fetch('data.json', { cache: 'no-cache' });
+    const res = await fetch('data.json?t=' + Date.now());
     globalData = await res.json();
     globalData.daily_prizes = normalizeDailyPrizes(globalData.daily_prizes);
     const statusEl = document.getElementById('status-text');

@@ -279,24 +279,69 @@
       document.getElementById("tbl-lich-thang").innerHTML = h + `</tbody>`;
     }
 
-    function getCustomDans() {
-      try { return JSON.parse(localStorage.getItem("thongke_custom_dans") || "[]"); } catch (e) { return []; }
+    function parseDanNumsAny(raw) {
+      const cleaned = String(raw || "").trim();
+      if (!cleaned) return [];
+      const tokens = cleaned.split(/[^0-9]+/).filter(Boolean);
+      const out = [];
+      tokens.forEach(tok => {
+        if (tok.length === 1) out.push(tok.padStart(2, "0"));
+        else if (tok.length === 2) out.push(tok);
+        else {
+          for (let i = 0; i + 1 < tok.length; i += 2) out.push(tok.slice(i, i + 2));
+        }
+      });
+      return Array.from(new Set(out.filter(x => /^\d{2}$/.test(x)))).sort();
     }
+
+    function checkCustomDanCycle() {
+      if (!globalData) return;
+      const nums = parseDanNumsAny(document.getElementById("custom-nums").value);
+      const box = document.getElementById("dn-cycle-result");
+      if (!nums.length) {
+        box.innerHTML = `<div style="color:#b91c1c; font-weight:700;">Vui lòng nhập dàn số (00–99) để tra chu kỳ!</div>`;
+        return;
+      }
+      const fromISO = document.getElementById("dn-chk-from").value;
+      const toISO = document.getElementById("dn-chk-to").value;
+      const histGDB = getAllHistoricalGDB(getNormalizedWeeks(globalData.weeks_gdb));
+      const res = analyzeDanCyclesInRange(histGDB, nums, fromISO, toISO);
+      const topHtml = res.topCycles.map((c, i) => `<div>• <b>Top ${i+1}: ${c.days} ngày</b> (${c.from} → ${c.to}, về <b>${c.de}</b>)</div>`).join("");
+      const hitsHtml = res.recentHits.slice(0, 10).map(h => `${h.date} (<b>${h.de}</b>)`).join(", ");
+      box.innerHTML = `
+        <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:8px 10px; font-size:12px;">
+          <div style="font-weight:800; color:#14365d; margin-bottom:4px;">Kết quả tra dàn ${nums.length} số (${res.fromDate} → ${res.toDate}):</div>
+          <div>• <b>Số ngày gan Max lịch sử:</b> <span style="color:#b91c1c; font-size:14px; font-weight:900;">${res.maxClosed} ngày</span> (${res.maxSpan})</div>
+          <div>• <b>Gan hiện tại (chưa về):</b> <b>${res.daysSince} ngày</b> · Về gần nhất: <b>${res.lastHitDate}</b> (${res.lastHitDe}) · Tổng số lần về: <b>${res.hitCount} lần</b></div>
+          ${topHtml ? `<div style="margin-top:4px;"><b>Top chu kỳ gan dài nhất:</b>${topHtml}</div>` : ""}
+          ${hitsHtml ? `<div style="margin-top:4px;"><b>Các ngày về gần nhất:</b> ${hitsHtml}</div>` : ""}
+        </div>
+      `;
+    }
+
     function addCustomDan() {
-      const name = document.getElementById("custom-name").value.trim();
-      const raw = document.getElementById("custom-nums").value.trim();
-      const maxDays = parseInt(document.getElementById("custom-max").value, 10) || 7;
-      if (!name || !raw) { alert("Vui lòng nhập tên dàn và danh sách số!"); return; }
-      const nums = raw.split(/[\s,.;-]+/).map(x => x.trim().padStart(2, '0')).filter(x => /^\d{2}$/.test(x));
-      if (!nums.length) { alert("Danh sách số chưa hợp lệ!"); return; }
-      const list = getCustomDans(); list.push({ name, nums: Array.from(new Set(nums)), maxDays });
-      localStorage.setItem("thongke_custom_dans", JSON.stringify(list));
-      document.getElementById("custom-name").value = ""; document.getElementById("custom-nums").value = "";
+      const nums = parseDanNumsAny(document.getElementById("custom-nums").value);
+      if (!nums.length) { alert("Vui lòng nhập ít nhất 1 số có 2 chữ số (VD: 01, 10, 25...)"); return; }
+      const list = getCustomDans();
+      const name = document.getElementById("custom-name").value.trim() || `Dàn tự nhập ${list.length + 1} (${nums.length}s)`;
+      let maxDays = 7;
+      if (globalData) {
+        const histGDB = getAllHistoricalGDB(getNormalizedWeeks(globalData.weeks_gdb));
+        const res = analyzeDanCyclesInRange(histGDB, nums, "", "");
+        if (res.maxClosed > 0) maxDays = res.maxClosed;
+      }
+      list.push({ name, nums, maxDays });
+      saveCustomDans(list);
+      checkCustomDanCycle();
+      document.getElementById("custom-name").value = "";
+      document.getElementById("custom-nums").value = "";
       renderPage();
     }
+
     function removeCustomDan(idx) {
-      const list = getCustomDans(); list.splice(idx, 1);
-      localStorage.setItem("thongke_custom_dans", JSON.stringify(list));
+      const list = getCustomDans();
+      list.splice(idx, 1);
+      saveCustomDans(list);
       renderPage();
     }
 
@@ -325,11 +370,11 @@
       // 1. Bảng tổng hợp Ngày về & Ngày chưa về (Tên dàn hiển thị kèm "gan X ngày")
       let hCk = `<thead><tr>
         <th>STT</th>
-        <th>Nguồn</th>
         <th>Tên Dàn Nuôi (Kèm số ngày gan hiện tại)</th>
         <th>Số con</th>
         <th>Ngày về gần nhất (Đề)</th>
         <th>Số ngày chưa về</th>
+        <th>Số ngày gan nhất</th>
         <th>Chu kỳ Max (R)</th>
         <th>Trạng thái</th>
       </tr></thead><tbody>`;
@@ -354,13 +399,10 @@
           ganPillClass = "gan-inline-badge is-warn";
         }
 
-        const grpTag = cfg.group === "Dàn trong ảnh"
-          ? `<span class="tag-grp tag-img">Dàn trong ảnh</span>`
-          : `<span class="tag-grp tag-rst">Chú thích Cột T</span>`;
+        const maxGanNhatVal = st.maxObserved > 0 ? st.maxObserved : st.ref;
 
         hCk += `<tr class="${cls}">
           <td>${idx + 1}</td>
-          <td>${grpTag}</td>
           <td style="text-align:left;">
             <div style="font-weight:700; cursor:pointer; color:#14365d;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
               ${cfg.name} — <span class="${ganPillClass}">${ganLabel}</span> <small style="color:#0969da;">[Xem số ▾]</small>
@@ -371,7 +413,8 @@
           </td>
           <td><b>${cfg.count}s</b></td>
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
-          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+          <td><b>${st.daysSince} ngày</b></td>
+          <td style="font-size:14px;"><b>${maxGanNhatVal} ngày</b> <span class="de-sub">(thực tế ${st.maxObserved} · chuẩn ${st.ref})</span></td>
           <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved}${st.over ? ' · đang vượt +' + st.over : ''})</span></td>
           <td>${badge}</td>
         </tr>`;

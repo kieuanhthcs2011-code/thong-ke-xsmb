@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Thongke.web.app - Trang Chủ Kết Quả XSMB</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
   <header class="top-bar">
@@ -33,6 +34,29 @@
         <a href="bang35.html" class="q-btn">Trang 3: Bảng 35 Cột →</a>
         <a href="ghep2so.html" class="q-btn">Trang 5: Ghép 2 Số 40 Ngày →</a>
         <button class="q-btn" style="background:#1d6f42" onclick="exportFullWorkbook()">📥 Xuất Excel (.xlsx)</button>
+      </div>
+    </div>
+
+    <!-- CÔNG CỤ TRA CỨU CHU KỲ & MAX GAN DÀN ĐẶC BIỆT BẤT KỲ (NHẬP DÀN -> TRA MAX GAN & LƯU LÊN WEB) -->
+    <div class="quick-stat-box" id="dan-cycle-lookup-box" style="margin-bottom:14px;">
+      <div class="qs-title" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;">
+        <span>🔍 TRA CỨU CHU KỲ & SỐ NGÀY GAN MAX CỦA DÀN ĐẶC BIỆT (ĐIỀN DÀN → TÍNH NGAY MAX GAN)</span>
+        <a href="dannuoi.html#sec-tra-chu-ky" style="color:#fff200; font-size:12px; text-decoration:underline;">Mở trang chi tiết & lịch sử về →</a>
+      </div>
+      <div style="padding:12px; background:#f8fafc;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
+          <input type="text" id="home-chk-name" placeholder="Tên dàn (VD: Dàn 12 số tự chọn)" style="padding:6px 10px; border:1px solid #9cbce2; border-radius:4px; min-width:190px; flex:1;" />
+          <label style="font-size:12px; font-weight:700; color:#14365d;">Từ ngày:
+            <input type="date" id="home-chk-from" style="padding:5px 8px; border:1px solid #9cbce2; border-radius:4px;" />
+          </label>
+          <label style="font-size:12px; font-weight:700; color:#14365d;">Đến ngày:
+            <input type="date" id="home-chk-to" style="padding:5px 8px; border:1px solid #9cbce2; border-radius:4px;" />
+          </label>
+          <button type="button" class="action-btn" onclick="runHomeCycleLookup(false)">🔍 Xem kết quả Max Gan</button>
+          <button type="button" class="action-btn" style="background:#1d6f42; border-color:#1d6f42;" onclick="runHomeCycleLookup(true)">+ Lưu dàn lên Web</button>
+        </div>
+        <textarea id="home-chk-nums" rows="2" placeholder="Nhập dàn đặc biệt muốn thống kê (hỗ trợ cách nhau bởi dấu phẩy, khoảng trắng, xuống dòng hoặc viết liền 010203... VD: 01, 10, 06, 60, 15, 51, 56, 65)" style="width:100%; padding:7px 10px; border:1px solid #9cbce2; border-radius:4px; font-family:inherit; font-size:13px;"></textarea>
+        <div id="home-chk-result" style="margin-top:10px;"></div>
       </div>
     </div>
 
@@ -172,6 +196,90 @@
       stack.innerHTML = list.map(buildBoardHtml).join("");
     }
 
+    function parseDanInputNumbers(raw) {
+      const cleaned = String(raw || "").trim();
+      if (!cleaned) return [];
+      const tokens = cleaned.split(/[^0-9]+/).filter(Boolean);
+      const out = [];
+      tokens.forEach(tok => {
+        if (tok.length === 1) out.push(tok.padStart(2, "0"));
+        else if (tok.length === 2) out.push(tok);
+        else if (tok.length % 2 === 0) {
+          for (let i = 0; i < tok.length; i += 2) out.push(tok.slice(i, i + 2));
+        } else {
+          for (let i = 0; i + 1 < tok.length; i += 2) out.push(tok.slice(i, i + 2));
+        }
+      });
+      return Array.from(new Set(out.filter(x => /^\d{2}$/.test(x)))).sort();
+    }
+
+    function runHomeCycleLookup(saveToWeb) {
+      if (!globalData) return;
+      const rawNums = document.getElementById('home-chk-nums').value;
+      const nums = parseDanInputNumbers(rawNums);
+      const box = document.getElementById('home-chk-result');
+      if (!nums.length) {
+        box.innerHTML = `<div style="color:#b91c1c; font-weight:700;">Vui lòng nhập ít nhất 1 số 2 chữ số (00–99) để tra chu kỳ Max gan!</div>`;
+        return;
+      }
+      const fromISO = document.getElementById('home-chk-from').value;
+      const toISO = document.getElementById('home-chk-to').value;
+      const histAll = getAllHistoricalGDB(getNormalizedWeeks(globalData.weeks_gdb));
+      const res = analyzeDanCyclesInRange(histAll, nums, fromISO, toISO);
+      const dups = findDuplicateDans(nums, getCustomDans().map(o => ({ name: "Dàn đã lưu: " + o.name, nums: o.nums })));
+
+      if (saveToWeb) {
+        const customList = getCustomDans();
+        const defaultName = `Dàn tự nhập ${customList.length + 1} (${nums.length}s)`;
+        const nameVal = (document.getElementById('home-chk-name').value || "").trim() || defaultName;
+        const maxVal = res.maxClosed > 0 ? res.maxClosed : 7;
+        customList.push({ name: nameVal, nums, maxDays: maxVal });
+        saveCustomDans(customList);
+        // Cập nhật lại bảng Dàn đang gan lâu trên trang chủ
+        DAN_MONITOR = getAllDanForMonitor()
+          .concat(getCustomDans().map((c, i) => ({ code: `CN-${i+1}`, group: "Dàn tự nhập (Đã lưu)", name: c.name, nums: c.nums, ref: c.maxDays })))
+          .map(d => ({ ...d, ...evaluateDan(histAll, d.nums, d.ref) }));
+        renderGanLau();
+      }
+
+      const isOverMax = res.maxClosed > 0 && res.daysSince >= res.maxClosed;
+      const topHtml = res.topCycles.length
+        ? res.topCycles.map((c, i) => `<span class="gan-chip" style="background:#fff; padding:4px 8px;"><b>Top ${i+1}: ${c.days} ngày</b>&nbsp;(${c.from} → ${c.to}, về <b>${c.de}</b>)</span>`).join(" ")
+        : `<span style="color:#64748b;">Chưa có đủ 2 lần về trong khoảng ngày đã chọn</span>`;
+
+      box.innerHTML = `
+        <div style="background:#fff; border:1.5px solid ${isOverMax ? '#ef4444' : '#3b82f6'}; border-radius:6px; padding:10px 12px;">
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div>
+              <b style="color:#14365d; font-size:14px;">Kết quả thống kê dàn ${nums.length} số</b>
+              <span style="color:#475569; font-size:12px;">(${res.fromDate} → ${res.toDate}, tổng ${res.totalDays} kỳ quay)</span>
+              ${saveToWeb ? '<span class="badge-status st-hit" style="margin-left:6px;">✓ Đã lưu dàn lên Web</span>' : ''}
+            </div>
+            ${dups.length ? `<span style="color:#b91c1c; font-weight:700; font-size:12px;">⚠ Trùng tập số với: ${dups.join(", ")}</span>` : `<span style="color:#15803d; font-weight:700; font-size:12px;">✓ Dàn riêng biệt</span>`}
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:8px;">
+            <div style="background:#fee2e2; border:1px solid #fca5a5; border-radius:5px; padding:6px 12px;">
+              <div style="font-size:11px; color:#991b1b; font-weight:700;">SỐ NGÀY GAN MAX LỊCH SỬ</div>
+              <div style="font-size:18px; font-weight:900; color:#b91c1c;">${res.maxClosed} ngày</div>
+              <div style="font-size:11px; color:#7f1d1d;">${res.maxSpan}</div>
+            </div>
+            <div style="background:${isOverMax ? '#fef2f2' : '#fef9c3'}; border:1px solid ${isOverMax ? '#ef4444' : '#facc15'}; border-radius:5px; padding:6px 12px;">
+              <div style="font-size:11px; color:#854d0e; font-weight:700;">GAN HIỆN TẠI (CHƯA VỀ)</div>
+              <div style="font-size:18px; font-weight:900; color:${isOverMax ? '#b91c1c' : '#854d0e'};">${res.daysSince} ngày ${isOverMax && res.maxClosed > 0 ? `(Vượt Max +${res.daysSince - res.maxClosed}ng!)` : ''}</div>
+              <div style="font-size:11px; color:#713f12;">Về gần nhất: <b>${res.lastHitDate}</b> (${res.lastHitDe})</div>
+            </div>
+            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:5px; padding:6px 12px;">
+              <div style="font-size:11px; color:#166534; font-weight:700;">SỐ LẦN VỀ TRONG KỲ</div>
+              <div style="font-size:18px; font-weight:900; color:#15803d;">${res.hitCount} lần</div>
+              <div style="font-size:11px; color:#166534;">Trung bình ${res.hitCount > 0 ? (res.totalDays / res.hitCount).toFixed(1) : '—'} ngày/lần</div>
+            </div>
+          </div>
+          <div style="font-size:12px; margin-bottom:6px;"><b>Các số trong dàn (${nums.length}s):</b> <span style="color:#1e293b;">${nums.join(", ")}</span></div>
+          <div style="font-size:12px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;"><b>Top chu kỳ gan dài nhất:</b> ${topHtml}</div>
+        </div>
+      `;
+    }
+
     let DAN_MONITOR = [];
     function renderGanLau() {
       const sort = document.getElementById('gl-sort').value;
@@ -268,7 +376,14 @@
 
       const histAll = getAllHistoricalGDB(getNormalizedWeeks(data.weeks_gdb));
       // Bảng dàn gan lâu (đầu trang) — tính thực tế từ toàn bộ lịch sử
-      DAN_MONITOR = getAllDanForMonitor().map(d => ({ ...d, ...evaluateDan(histAll, d.nums, d.ref) }));
+      const savedCustomForHome = getCustomDans().map((c, i) => ({
+        code: `CN-${i + 1}`,
+        group: "Dàn tự nhập (Đã lưu)",
+        name: c.name,
+        nums: c.nums,
+        ref: c.maxDays
+      }));
+      DAN_MONITOR = getAllDanForMonitor().concat(savedCustomForHome).map(d => ({ ...d, ...evaluateDan(histAll, d.nums, d.ref) }));
       const topCardsBox = document.getElementById('home-top-dan-cards');
       if (topCardsBox) {
         const top8 = DAN_MONITOR.slice().sort((a, b) => b.gan - a.gan).slice(0, 8);
