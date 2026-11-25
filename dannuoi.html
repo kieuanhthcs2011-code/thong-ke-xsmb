@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trang 2: Dàn Nuôi & Chu Kỳ (Không Dàn Trùng) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
-  <script>window.__dataP=fetch("data.json",{cache:"no-cache"});</script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
     .sub-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
     .sub-btn {
@@ -219,6 +219,17 @@
       </div>
       <div style="overflow-x:auto;">
         <table class="stat-table" id="tbl-bo-kep-4s"></table>
+      </div>
+    </div>
+
+    <!-- BẢNG 8: 5 DÀN CẶP TỔNG 20 SỐ (TỔNG 0-5, TỔNG 1-6, TỔNG 2-7, TỔNG 3-8, TỔNG 4-9) -->
+    <div class="card-panel" style="margin-top:14px;">
+      <div class="card-header">
+        <span>8. CẶP TỔNG 20 SỐ: TỔNG 0-5, TỔNG 1-6, TỔNG 2-7, TỔNG 3-8, TỔNG 4-9</span>
+        <span style="font-size:11px; font-weight:normal;">Mỗi dàn gồm 20 số thuộc cặp tổng (+5) — Tự đếm ngày chưa ra &amp; gan cực đại lịch sử</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="stat-table" id="tbl-cap-tong-20s"></table>
       </div>
     </div>
 
@@ -476,7 +487,7 @@
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td><b>${st.daysSince} ngày</b></td>
           <td style="font-size:14px;"><b>${maxGanNhatVal} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
-          <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · đo được ${st.maxData}${st.over ? ' · đang vượt +' + st.over : ''})</span></td>
+          <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved}${st.over ? ' · đang vượt +' + st.over : ''})</span></td>
           <td>${badge}</td>
         </tr>`;
       });
@@ -538,8 +549,8 @@
       ctConfigs.forEach(item => {
         const st = evaluateDan(histGDB, item.nums, item.excelMax);
         const mk = computeMketquaCycle(histGDB, item.nums);
-        const ganMaxVal = st.realMax;
-        const ganMaxSpan = st.maxSpan || "";
+        const ganMaxVal = mk.maxInclHit > 0 ? mk.maxInclHit : (st.maxObserved > 0 ? st.maxObserved : st.ref);
+        const ganMaxSpan = mk.maxInclHit > 0 ? mk.maxInclSpan : (st.maxSpan || "");
         let cls = "", badge = `<span class="badge-status st-normal">Bình thường</span>`;
         let gBadge = `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
         if (st.daysSince === 0) {
@@ -584,8 +595,8 @@
           const others = customList.filter((_, j) => j !== idx).map(o => ({ name: "Dàn cá nhân: " + o.name, nums: o.nums }));
           const dups = findDuplicateDans(item.nums, others);
           const dupHtml = dups.length ? `<span style="color:#b91c1c; font-weight:700;">⚠ Trùng: ${dups.join("; ")}</span>` : `<span style="color:#15803d;">Riêng biệt</span>`;
-          const st = evaluateDan(histGDB, item.nums, item.maxClosed || item.maxDays || 0);
-          const autoMax = st.realMax > 0 ? st.realMax : 7;
+          const st = computeDanStats(histGDB, new Set(item.nums));
+          const autoMax = st.maxObserved > 0 ? st.maxObserved : (item.maxDays || 7);
           const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= autoMax ? "bg-red-alert" : "");
           const gBadge = st.daysSince === 0
             ? `<span class="gan-inline-badge is-zero">vừa về</span>`
@@ -733,6 +744,37 @@
       });
       const bkTbl = document.getElementById("tbl-bo-kep-4s");
       if (bkTbl) bkTbl.innerHTML = hBk + `</tbody>`;
+
+      // 8. Render 5 dàn cặp tổng 20 số (Tổng 0-5, 1-6, 2-7, 3-8, 4-9)
+      const ct20List = getCapTong20SoConfigs();
+      let hCt20 = `<thead><tr>
+        <th>STT</th>
+        <th>Tên Dàn Cặp Tổng</th>
+        <th>Các Số Trong Dàn (20 số)</th>
+        <th>Ngày Về Gần Nhất</th>
+        <th>Ngày Chưa Ra</th>
+        <th>Gan Cực Đại</th>
+        <th>Trạng Thái</th>
+      </tr></thead><tbody>`;
+      ct20List.forEach((cfg, idx) => {
+        const st = evaluateDan(histGDB, cfg.nums, cfg.excelMax);
+        const lv = DAN_LEVEL[st.level];
+        const statusTxt = st.over > 0 ? `Vượt Max (+${st.over}ng)!` : lv.text;
+        const gBadge = st.daysSince === 0
+          ? `<span class="gan-inline-badge is-zero">vừa về (0 ngày)</span>`
+          : `<span class="gan-inline-badge">chưa ra ${st.daysSince} ngày</span>`;
+        hCt20 += `<tr class="${lv.cls}">
+          <td>${idx + 1}</td>
+          <td style="text-align:left;"><b>${cfg.name}</b> — ${gBadge}</td>
+          <td style="text-align:left; font-family:monospace; font-size:11.5px; white-space:normal; max-width:420px;"><b>${cfg.nums.join(", ")}</b></td>
+          <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
+          <td style="font-size:14px;"><b>${st.daysSince} ngày</b></td>
+          <td style="font-size:14px;"><b>${st.realMax} ngày</b><span class="de-sub">${st.maxSpan || ""}</span></td>
+          <td><span class="badge-status ${lv.badge}">${statusTxt}</span></td>
+        </tr>`;
+      });
+      const ct20Tbl = document.getElementById("tbl-cap-tong-20s");
+      if (ct20Tbl) ct20Tbl.innerHTML = hCt20 + `</tbody>`;
 
 
     };

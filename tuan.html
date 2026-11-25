@@ -479,7 +479,7 @@
 
       for (let i = 1; i <= dan.days; i++) {
         const mult = dayMultiplier(i, dan.stepMode);
-        const dayCost = dan.baseAmt * mult * countNums;
+        const dayCost = dan.baseAmt * mult * countNums * 0.75;
         const item = i <= effectiveDays ? recentSlice[i - 1] : null;
         const isHit = !!(item && dan.nums.includes(item.de));
         if (i <= effectiveDays) {
@@ -591,7 +591,7 @@
           <td></td>
         </tr>` : "";
 
-      box.innerHTML = `Đã lưu <b>${savedList.length}</b> dàn nuôi${draftCfg.nums.length ? ' (kèm 1 dàn đang nhập xem trước ở dòng vàng nhạt)' : ''}. Bấm <b>💾 Lưu dàn vào bảng</b> để chốt dàn hiện tại, sau đó nhập tiếp dàn mới.`;
+      box.innerHTML = `Đã lưu <b>${savedList.length}</b> dàn nuôi${draftCfg.nums.length ? ' (kèm 1 dàn đang nhập xem trước ở dòng vàng nhạt)' : ''}. <b>Công thức tiền gốc mỗi ngày:</b> Số tiền × Số con × 0,75.`;
 
       tblWrap.innerHTML = `
         <table class="nuoi-detail-table">
