@@ -59,6 +59,59 @@
       color: #0f172a;
       background: #fff;
     }
+    .nuoi-days-inputs-box {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+    }
+    .nuoi-days-inputs-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+    .nuoi-days-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 8px;
+    }
+    .nuoi-day-item {
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 5px 7px;
+    }
+    .nuoi-day-item label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 3px;
+    }
+    .nuoi-day-item input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 4px 6px;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .nuoi-day-item .day-cost-sub {
+      display: block;
+      margin-top: 3px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #1d4ed8;
+    }
     .btn-save-nuoi {
       background: #16a34a;
       color: #fff;
@@ -97,6 +150,19 @@
     }
     .btn-clear-nuoi:hover {
       background: #dc2626;
+    }
+    .btn-autofill-days {
+      background: #0f766e;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-autofill-days:hover {
+      background: #115e59;
     }
     .btn-row-del {
       background: #fee2e2;
@@ -263,13 +329,14 @@
           </select>
         </div>
         <div class="nuoi-field">
-          <label for="nuoi-base-amt">Tiền ngày 1 / 1 số (VNĐ)</label>
-          <input type="number" id="nuoi-base-amt" min="0" step="1000" value="10000" oninput="onNuoiDraftChange()" />
+          <label for="nuoi-base-amt">Tiền gốc ngày 1 / 1 số (VNĐ)</label>
+          <input type="number" id="nuoi-base-amt" min="0" step="1000" value="10000" oninput="onBaseOrModeChange()" />
         </div>
         <div class="nuoi-field">
-          <label for="nuoi-step-mode">Cách tăng tiền các ngày sau</label>
-          <select id="nuoi-step-mode" onchange="onNuoiDraftChange()">
-            <option value="flat" selected>Giữ nguyên mỗi ngày (x1)</option>
+          <label for="nuoi-step-mode">Cách vào tiền các ngày</label>
+          <select id="nuoi-step-mode" onchange="onBaseOrModeChange()">
+            <option value="manual" selected>Tự điền tiền từng ngày (N1, N2...)</option>
+            <option value="flat">Giữ nguyên mỗi ngày (x1)</option>
             <option value="add">Cộng thêm tiền gốc (+1x/ngày)</option>
             <option value="mul2">Gấp đôi mỗi ngày (x2/ngày)</option>
           </select>
@@ -280,9 +347,18 @@
         </div>
         <div class="nuoi-field">
           <label for="nuoi-days">Số ngày nuôi trong chu kỳ</label>
-          <input type="number" id="nuoi-days" min="1" max="30" step="1" value="3" oninput="onNuoiDraftChange()" />
+          <input type="number" id="nuoi-days" min="1" max="30" step="1" value="3" oninput="onDaysCountChange()" />
         </div>
       </div>
+
+      <div class="nuoi-days-inputs-box">
+        <div class="nuoi-days-inputs-head">
+          <span>💵 ĐIỀN MỨC VÀO TIỀN / 1 SỐ CHO TỪNG NGÀY (Tiền gốc ngày = Mức điền × Số con × 0,75)</span>
+          <button type="button" class="btn-autofill-days" onclick="autoFillDailyAmountsFromMode()">↻ Điền nhanh theo công thức</button>
+        </div>
+        <div class="nuoi-days-grid" id="nuoi-daily-inputs-grid"></div>
+      </div>
+
       <div class="nuoi-summary" id="nuoi-summary-box"></div>
       <div class="nuoi-table-wrap" id="nuoi-detail-table-wrap"></div>
     </div>
@@ -296,8 +372,9 @@
   </div>
   <script src="app.js"></script>
   <script>
-    const NUOI_LIST_KEY = "thongkesxmb_tuan_nuoi_list_v2";
-    const NUOI_DRAFT_KEY = "thongkesxmb_tuan_nuoi_draft_v2";
+    const NUOI_LIST_KEY = "thongkesxmb_tuan_nuoi_list_v3";
+    const NUOI_DRAFT_KEY = "thongkesxmb_tuan_nuoi_draft_v3";
+    let draftDailyAmts = [10000, 10000, 10000];
 
     function escapeHtml(s) {
       return String(s || "")
@@ -330,16 +407,116 @@
       return 1;
     }
 
+    function syncDraftDailyAmtsLength(days, forceRecalcFromMode = false) {
+      const baseAmt = Math.max(0, Number(document.getElementById("nuoi-base-amt").value) || 0);
+      const stepMode = document.getElementById("nuoi-step-mode").value || "manual";
+      const next = [];
+      for (let i = 1; i <= days; i++) {
+        if (!forceRecalcFromMode && draftDailyAmts[i - 1] !== undefined && draftDailyAmts[i - 1] !== null && draftDailyAmts[i - 1] !== "") {
+          next.push(Math.max(0, Number(draftDailyAmts[i - 1]) || 0));
+        } else if (stepMode === "flat" || stepMode === "add" || stepMode === "mul2") {
+          next.push(baseAmt * dayMultiplier(i, stepMode));
+        } else {
+          next.push(i === 1 ? baseAmt : (draftDailyAmts[i - 2] !== undefined ? Number(draftDailyAmts[i - 2]) || baseAmt : baseAmt));
+        }
+      }
+      draftDailyAmts = next;
+    }
+
+    function renderDailyInputsGrid() {
+      const grid = document.getElementById("nuoi-daily-inputs-grid");
+      if (!grid) return;
+      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 3));
+      const nums = parseNuoiList(document.getElementById("nuoi-nums").value);
+      const countNums = nums.length;
+      syncDraftDailyAmtsLength(days, false);
+
+      let html = "";
+      for (let i = 1; i <= days; i++) {
+        const val = draftDailyAmts[i - 1] !== undefined ? draftDailyAmts[i - 1] : 0;
+        const daySpent = val * countNums * 0.75;
+        html += `
+          <div class="nuoi-day-item">
+            <label for="nuoi-day-amt-${i}">Vào tiền ngày ${i} (VNĐ/số)</label>
+            <input type="number" id="nuoi-day-amt-${i}" min="0" step="1000" value="${val}" oninput="onSingleDayAmtInput(${i}, this.value)" />
+            <span class="day-cost-sub">Gốc (${countNums}s × 0,75): ${formatVND(daySpent)}</span>
+          </div>
+        `;
+      }
+      grid.innerHTML = html;
+    }
+
+    function onSingleDayAmtInput(dayIdx1Based, rawVal) {
+      const v = Math.max(0, Number(rawVal) || 0);
+      draftDailyAmts[dayIdx1Based - 1] = v;
+      if (dayIdx1Based === 1) {
+        document.getElementById("nuoi-base-amt").value = v;
+      }
+      // Update sub-label inline without losing input focus
+      const nums = parseNuoiList(document.getElementById("nuoi-nums").value);
+      const itemEl = document.getElementById(`nuoi-day-amt-${dayIdx1Based}`);
+      if (itemEl && itemEl.parentElement) {
+        const sub = itemEl.parentElement.querySelector(".day-cost-sub");
+        if (sub) sub.textContent = `Gốc (${nums.length}s × 0,75): ${formatVND(v * nums.length * 0.75)}`;
+      }
+      saveDraftToStorage();
+      renderPage(false);
+    }
+
+    function onBaseOrModeChange() {
+      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 3));
+      const stepMode = document.getElementById("nuoi-step-mode").value || "manual";
+      const baseAmt = Math.max(0, Number(document.getElementById("nuoi-base-amt").value) || 0);
+      if (stepMode === "manual") {
+        draftDailyAmts[0] = baseAmt;
+        syncDraftDailyAmtsLength(days, false);
+      } else {
+        syncDraftDailyAmtsLength(days, true);
+      }
+      saveDraftToStorage();
+      renderPage(true);
+    }
+
+    function autoFillDailyAmountsFromMode() {
+      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 3));
+      const stepMode = document.getElementById("nuoi-step-mode").value || "manual";
+      const baseAmt = Math.max(0, Number(document.getElementById("nuoi-base-amt").value) || 0);
+      for (let i = 1; i <= days; i++) {
+        if (stepMode === "add") draftDailyAmts[i - 1] = baseAmt * i;
+        else if (stepMode === "mul2") draftDailyAmts[i - 1] = baseAmt * Math.pow(2, i - 1);
+        else draftDailyAmts[i - 1] = baseAmt;
+      }
+      saveDraftToStorage();
+      renderPage(true);
+    }
+
+    function onDaysCountChange() {
+      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 3));
+      syncDraftDailyAmtsLength(days, false);
+      saveDraftToStorage();
+      renderPage(true);
+    }
+
     function getDraftNuoiConfig() {
       const rawName = (document.getElementById("nuoi-name").value || "").trim();
       const nums = parseNuoiList(document.getElementById("nuoi-nums").value);
       const danName = rawName || (nums.length ? `Dàn nuôi (${nums.length} số)` : "");
       const type = document.getElementById("nuoi-type").value || "de";
       const baseAmt = Math.max(0, Number(document.getElementById("nuoi-base-amt").value) || 0);
-      const stepMode = document.getElementById("nuoi-step-mode").value || "flat";
+      const stepMode = document.getElementById("nuoi-step-mode").value || "manual";
       const payout = Math.max(1, Number(document.getElementById("nuoi-payout").value) || 95);
       const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 3));
-      return { danName, nums, type, baseAmt, stepMode, payout, days };
+      syncDraftDailyAmtsLength(days, false);
+      return {
+        danName,
+        nums,
+        type,
+        baseAmt,
+        stepMode,
+        payout,
+        days,
+        dailyAmts: draftDailyAmts.slice(0, days)
+      };
     }
 
     function getSavedDanList() {
@@ -367,7 +544,8 @@
           baseAmt: document.getElementById("nuoi-base-amt").value,
           stepMode: document.getElementById("nuoi-step-mode").value,
           payout: document.getElementById("nuoi-payout").value,
-          days: document.getElementById("nuoi-days").value
+          days: document.getElementById("nuoi-days").value,
+          dailyAmts: draftDailyAmts
         };
         localStorage.setItem(NUOI_DRAFT_KEY, JSON.stringify(payload));
       } catch (e) {}
@@ -385,12 +563,13 @@
         if (p.stepMode) document.getElementById("nuoi-step-mode").value = p.stepMode;
         if (p.payout !== undefined) document.getElementById("nuoi-payout").value = p.payout;
         if (p.days !== undefined) document.getElementById("nuoi-days").value = p.days;
+        if (Array.isArray(p.dailyAmts)) draftDailyAmts = p.dailyAmts.map(x => Math.max(0, Number(x) || 0));
       } catch (e) {}
     }
 
     function onNuoiDraftChange() {
       saveDraftToStorage();
-      renderPage();
+      renderPage(true);
     }
 
     function saveCurrentDanToList() {
@@ -411,19 +590,22 @@
         baseAmt: cfg.baseAmt,
         stepMode: cfg.stepMode,
         payout: cfg.payout,
-        days: cfg.days
+        days: cfg.days,
+        dailyAmts: cfg.dailyAmts.slice(0, cfg.days)
       });
       setSavedDanList(list);
       resetNuoiFormForNew(false);
-      renderPage();
+      renderPage(true);
     }
 
     function resetNuoiFormForNew(shouldRender = true) {
       document.getElementById("nuoi-name").value = "";
       document.getElementById("nuoi-nums").value = "";
+      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 3));
+      syncDraftDailyAmtsLength(days, false);
       try { localStorage.removeItem(NUOI_DRAFT_KEY); } catch (e) {}
       if (shouldRender) {
-        renderPage();
+        renderPage(true);
         document.getElementById("nuoi-name").focus();
       }
     }
@@ -431,7 +613,7 @@
     function deleteSavedDan(id) {
       const list = getSavedDanList().filter(item => item.id !== id);
       setSavedDanList(list);
-      renderPage();
+      renderPage(false);
     }
 
     function clearAllNuoiData() {
@@ -442,10 +624,11 @@
       document.getElementById("nuoi-name").value = "";
       document.getElementById("nuoi-nums").value = "";
       document.getElementById("nuoi-base-amt").value = "10000";
-      document.getElementById("nuoi-step-mode").value = "flat";
+      document.getElementById("nuoi-step-mode").value = "manual";
       document.getElementById("nuoi-payout").value = "95";
       document.getElementById("nuoi-days").value = "3";
-      renderPage();
+      draftDailyAmts = [10000, 10000, 10000];
+      renderPage(true);
     }
 
     function getChronologicalEntries(weeksDesc) {
@@ -468,6 +651,14 @@
       return entries;
     }
 
+    function getPerNumAmtForDay(dan, dayIndex1Based) {
+      if (Array.isArray(dan.dailyAmts) && dan.dailyAmts[dayIndex1Based - 1] !== undefined) {
+        return Math.max(0, Number(dan.dailyAmts[dayIndex1Based - 1]) || 0);
+      }
+      const mult = dayMultiplier(dayIndex1Based, dan.stepMode);
+      return (Number(dan.baseAmt) || 0) * mult;
+    }
+
     function evaluateDanMetrics(dan, entries) {
       const countNums = dan.nums.length;
       const effectiveDays = Math.min(dan.days, entries.length || dan.days);
@@ -478,19 +669,20 @@
       const dayBreakdown = [];
 
       for (let i = 1; i <= dan.days; i++) {
-        const mult = dayMultiplier(i, dan.stepMode);
-        const dayCost = dan.baseAmt * mult * countNums * 0.75;
+        const perNumAmt = getPerNumAmtForDay(dan, i);
+        const dayCost = perNumAmt * countNums * 0.75;
         const item = i <= effectiveDays ? recentSlice[i - 1] : null;
         const isHit = !!(item && dan.nums.includes(item.de));
         if (i <= effectiveDays) {
           totalCost += dayCost;
           if (isHit) {
             hitCount += 1;
-            totalWin += dan.baseAmt * mult * dan.payout;
+            totalWin += perNumAmt * dan.payout;
           }
         }
         dayBreakdown.push({
           day: i,
+          perNumAmt,
           dayCost,
           isHit,
           hitDe: isHit ? item.de : ""
@@ -525,12 +717,13 @@
           stepMode: draftCfg.stepMode,
           payout: draftCfg.payout,
           days: draftCfg.days,
+          dailyAmts: draftCfg.dailyAmts,
           isDraft: true
         });
       }
 
       if (!rowsToShow.length) {
-        box.innerHTML = `Điền <b>Tên dàn nuôi</b>, <b>Số đang nuôi</b> và mức tiền vào các ô trên, sau đó bấm <b>💾 Lưu dàn vào bảng</b>. Sau khi lưu, bạn có thể bấm <b>➕ Thêm dàn mới</b> để lưu thêm nhiều dàn khác nhau.`;
+        box.innerHTML = `Điền <b>Tên dàn nuôi</b>, <b>Số đang nuôi</b> và <b>Vào tiền ngày 1, ngày 2, ngày 3...</b> ở khung trên, sau đó bấm <b>💾 Lưu dàn vào bảng</b>. Công thức tiền gốc mỗi ngày: <b>Số tiền × Số con × 0,75</b>.`;
         tblWrap.innerHTML = "";
         return;
       }
@@ -557,7 +750,7 @@
           } else {
             const dInfo = m.dayBreakdown[i - 1];
             dayCells.push(
-              `<td style="${dInfo.isHit ? 'background:#dcfce7; font-weight:800; color:#166534;' : ''}">${formatVND(dInfo.dayCost)}${dInfo.isHit ? `<br><span style="font-size:10px;">✓ ${dInfo.hitDe}</span>` : ''}</td>`
+              `<td style="${dInfo.isHit ? 'background:#dcfce7; font-weight:800; color:#166534;' : ''}"><div><b>${formatVND(dInfo.dayCost)}</b></div><div style="font-size:10px; color:#475569;">(${formatVND(dInfo.perNumAmt)}/s)</div>${dInfo.isHit ? `<span style="font-size:10px; color:#15803d;">✓ ${dInfo.hitDe}</span>` : ''}</td>`
             );
           }
         }
@@ -591,7 +784,7 @@
           <td></td>
         </tr>` : "";
 
-      box.innerHTML = `Đã lưu <b>${savedList.length}</b> dàn nuôi${draftCfg.nums.length ? ' (kèm 1 dàn đang nhập xem trước ở dòng vàng nhạt)' : ''}. <b>Công thức tiền gốc mỗi ngày:</b> Số tiền × Số con × 0,75.`;
+      box.innerHTML = `Đã lưu <b>${savedList.length}</b> dàn nuôi${draftCfg.nums.length ? ' (kèm 1 dàn đang nhập xem trước ở dòng vàng nhạt)' : ''}. <b>Công thức tiền gốc mỗi ngày:</b> Mức vào tiền × Số con × 0,75.`;
 
       tblWrap.innerHTML = `
         <table class="nuoi-detail-table">
@@ -614,7 +807,10 @@
       `;
     }
 
-    function renderPage() {
+    function renderPage(rebuildDayInputs = true) {
+      if (rebuildDayInputs) {
+        renderDailyInputsGrid();
+      }
       if (!globalData) return;
       const limit = parseInt(document.getElementById('limit-select').value, 10);
       const fCham = document.getElementById('filter-cham').value;
@@ -666,6 +862,7 @@
     }
 
     loadDraftFromStorage();
+    renderDailyInputsGrid();
     loadSharedData(renderPage);
   </script>
 </body>
