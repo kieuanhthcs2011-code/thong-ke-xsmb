@@ -171,6 +171,10 @@
           ? `{${Array.from(next7.chamSet).sort().join(",")}}`
           : `Đang ${next7.count}/7N`;
 
+        const fmtGdbGrayDe = (s) => {
+          if (!s || s.length < 5) return s || "—";
+          return `${s.slice(0, 3)}<span class="de-gray-pill">${s.slice(3)}</span>`;
+        };
         const renderBridgeCell = (val, isBold = false) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           if (s === "") return `<td></td>`;
@@ -197,7 +201,7 @@
         }
 
         h += [r.AF, r.AG, r.AH, r.AI, r.AJ, r.AK, r.AL]
-          .map(v => `<td class="td-gdb">${v || "—"}</td>`).join("");
+          .map(v => `<td class="td-gdb">${fmtGdbGrayDe(v)}</td>`).join("");
 
         if (showCham) {
           h += `<td class="td-cham-ref">${chamRefLabel}</td>`;

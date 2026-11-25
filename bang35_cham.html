@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trang 4: Bảng 35 Cột (Chạm 2 Số Cuối 7 Ngày Liên Tiếp Sau) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
   <header class="top-bar">
@@ -27,6 +28,7 @@
   <div class="container">
     <div class="toolbar">
       <div class="legend">
+        <span><i class="swatch" style="background:#e5e7eb"></i><b>Xám nhạt:</b> 2 cột <b>Đề (2 số cuối)</b> của mỗi ngày (vẫn tô vàng bình thường nếu không về)</span>
         <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Chữ số <b>không về Chạm (2 số cuối GĐB)</b> trong <b>7 ngày liên tiếp ngay sau ngày đó</b></span>
         <span><i class="swatch" style="background:#fff"></i><b>Trắng (Không tô):</b> Trùng 1 trong 2 số cuối GĐB của 7 ngày liên tiếp sau đó</span>
       </div>
@@ -60,7 +62,7 @@
       let h = `<thead><tr><th rowspan="2">Tuần (Ngày T2 → CN)</th><th rowspan="2">Tập Chạm 7N sau T2</th>`;
       daysName.forEach((d, i) => { h += `<th colspan="5">${d} (Cột ${i*5+1}-${i*5+5})</th>`; });
       h += `</tr><tr>`;
-      for (let c = 1; c <= 35; c++) h += `<th>${c}</th>`;
+      for (let c = 1; c <= 35; c++) { const isDeCol = (c % 5 === 4 || c % 5 === 0); h += `<th style="${isDeCol ? 'background:#4b5563;' : ''}">${c}${isDeCol ? '<br><small>Đề</small>' : ''}</th>`; }
       h += `</tr></thead><tbody>`;
 
       weeks.forEach((wk, idx) => {
@@ -82,11 +84,13 @@
 
           for (let k = 0; k < 5; k++) {
             const ch = num[k] !== undefined ? num[k] : "";
+            const deCls = (k === 3 || k === 4) ? "bg-de-gray" : "";
             if (ch !== "" && next7.hasFull7) {
               const isYellow = !next7.chamSet.has(parseInt(ch, 10));
-              h += `<td class="${isYellow ? 'bg-yellow' : ''}" title="${tip}">${ch}</td>`;
+              const cls = [deCls, isYellow ? "bg-yellow" : ""].filter(Boolean).join(" ");
+              h += `<td class="${cls}" title="${tip}">${ch}</td>`;
             } else {
-              h += `<td title="${tip}">${ch}</td>`;
+              h += `<td class="${deCls}" title="${tip}">${ch}</td>`;
             }
           }
         }

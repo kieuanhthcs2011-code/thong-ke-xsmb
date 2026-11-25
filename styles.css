@@ -225,6 +225,11 @@ table.stat-table thead th {
 table.stat-table thead tr:nth-child(2) th { top: 28px; background: #366896; }
 table.stat-table tbody tr:nth-child(even) { background: #f9fbfd; }
 table.stat-table tbody tr:hover { background: #eef4fa; }
+.bg-de-gray { background-color: #e5e7eb !important; color: #111827; font-weight: 700; }
+.bg-de-gray.bg-yellow { background-color: var(--yellow) !important; color: var(--yellow-text) !important; font-weight: 800; box-shadow: inset 0 0 0 1.5px #6b7280; }
+.de-gray-pill { display: inline-block; background: #e5e7eb; color: #111827; font-weight: 700; padding: 0 4px; border-radius: 3px; }
+.bg-de-gray { background-color: #e5e7eb !important; color: #111827; font-weight: 700; }
+.bg-de-gray.bg-yellow { background-color: var(--yellow) !important; color: var(--yellow-text) !important; font-weight: 800; box-shadow: inset 0 0 0 1.5px #9ca3af; }
 .bg-yellow { background-color: var(--yellow) !important; color: var(--yellow-text) !important; font-weight: 700; }
 .bg-green { background-color: var(--green) !important; color: var(--green-text) !important; font-weight: 700; }
 .bg-red-alert { background-color: var(--red-soft) !important; color: var(--red-text) !important; font-weight: 700; }
