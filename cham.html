@@ -220,7 +220,7 @@
       const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
       const weeks = allWeeks.slice(0, limit);
       const auxMap = globalData.cham_aux_by_mon_gdb || {};
-      const gMaxMap = computeColumnMaxYellowMap(weeks, allWeeks, auxMap);
+      const gMaxMap = computeColumnMaxYellowMap(allWeeks, allWeeks, auxMap);
 
       const showTach = (currentGroup === 'all' || currentGroup === 'tach');
       const showCham = (currentGroup === 'all' || currentGroup === 'cham');
