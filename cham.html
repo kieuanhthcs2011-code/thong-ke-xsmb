@@ -42,6 +42,14 @@
       font-weight: 800;
       line-height: 1.25;
     }
+    .cell-mode-tag {
+      display: block;
+      font-size: 9.5px;
+      font-weight: 700;
+      opacity: 0.85;
+      line-height: 1.15;
+      margin-bottom: 1px;
+    }
   </style>
 </head>
 <body>
@@ -145,9 +153,9 @@
         { id: "tach_AC", kind: "cham", getVal: r => r.AC, dIdx: 6 },
         { id: "tach_AD", kind: "cham", getVal: r => r.AD, dIdx: 6 },
         { id: "tach_AE", kind: "cham", getVal: r => r.AE, dIdx: 6 },
-        { id: "cham_AM", kind: "cham", getVal: r => r.AM, dIdx: 2 },
-        { id: "cham_AN", kind: "cham", getVal: r => r.AN, dIdx: 5 },
-        { id: "cham_AO", kind: "cham", getVal: r => r.AO, dIdx: 6 },
+        { id: "cham_AM", kind: "tong", getVal: r => r.AM, dIdx: 2 },
+        { id: "cham_AN", kind: "tong", getVal: r => r.AN, dIdx: 5 },
+        { id: "cham_AO", kind: "tong", getVal: r => r.AO, dIdx: 6 },
         { id: "cham_AP", kind: "cham", getVal: r => r.AP, dIdx: 3 },
         { id: "cham_AQ", kind: "cham", getVal: r => r.AQ, dIdx: 4 },
         { id: "cham_AR", kind: "cham", getVal: r => r.AR, dIdx: 5 },
@@ -188,7 +196,9 @@
           if (s !== "" && st && st.hasFull7) {
             const dig = parseInt(s, 10);
             const targetSet = spec.kind === "cham" ? st.chamSet : st.sumsSet;
-            if (!Number.isNaN(dig) && !targetSet.has(dig)) {
+            const pairDig = (spec.kind === "tong" && !Number.isNaN(dig)) ? ((dig + 5) % 10) : null;
+            const hit = !Number.isNaN(dig) && (targetSet.has(dig) || (pairDig !== null && targetSet.has(pairDig)));
+            if (!Number.isNaN(dig) && !hit) {
               isYellow = true;
             }
           }
@@ -251,10 +261,12 @@
 
       if (showCham) {
         const chamCols = [
-          ["c(T4)", "cham_AM"], ["c(T7)", "cham_AN"], ["c(CN)", "cham_AO"], ["e+1(T5)", "cham_AP"], ["e-1(T6)", "cham_AQ"],
-          ["b(G1-T7)", "cham_AR"], ["b(G7-1)+a(G7-4)", "cham_AS"], ["Tổng d(7N)", "cham_AT"], ["Tổng b(7N)", "cham_AU"], ["Tổng c(7N)", "cham_AV"]
+          ["c(T4)", "cham_AM", "Tổng"], ["c(T7)", "cham_AN", "Tổng"], ["c(CN)", "cham_AO", "Tổng"],
+          ["e+1(T5)", "cham_AP", "Chạm"], ["e-1(T6)", "cham_AQ", "Chạm"],
+          ["b(G1-T7)", "cham_AR", "Chạm"], ["b(G7-1)+a(G7-4)", "cham_AS", "Chạm"],
+          ["Tổng d(7N)", "cham_AT", "Chạm"], ["Tổng b(7N)", "cham_AU", "Chạm"], ["Tổng c(7N)", "cham_AV", "Chạm"]
         ];
-        h += chamCols.map(([c, id]) => `<th>${c}<br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
+        h += chamCols.map(([c, id, tagMode]) => `<th>${c}<br><small>[${tagMode}]</small><br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
       }
 
       if (showPascal) {
@@ -350,13 +362,37 @@
         h += [r.AF, r.AG, r.AH, r.AI, r.AJ, r.AK, r.AL]
           .map(v => `<td class="td-gdb">${fmtGdbGrayDe(v)}</td>`).join("");
 
+        const renderAmAvCell = (val, dIdx, mode) => {
+          const s = (val !== undefined && val !== null) ? String(val).trim() : "";
+          if (s === "") return `<td></td>`;
+          const st = dStats[dIdx];
+          const dig = parseInt(s, 10);
+          const isTong = (mode === 'tong');
+          const pairDig = (!Number.isNaN(dig) && isTong) ? ((dig + 5) % 10) : null;
+          const labelVal = (!Number.isNaN(dig) && isTong) ? `${dig}(${pairDig})` : s;
+          const modeLabel = isTong ? "Tổng" : "Chạm";
+          const targetSet = isTong ? st.sumsSet : st.chamSet;
+          const labelSet = `{${Array.from(targetSet).sort().join(",")}}`;
+          const tip = st.daysDetail.length
+            ? `${modeLabel} ${labelVal} | D+1..D+7: ${st.daysDetail.join(", ")} | Tập ${modeLabel.toLowerCase()}: ${labelSet}`
+            : `${modeLabel} ${labelVal} | Chờ đủ 7 ngày tiếp theo (D+1..D+7)`;
+          if (!st.hasFull7) {
+            return `<td title="${tip}"><span class="cell-mode-tag">${modeLabel}</span><b>${labelVal}</b></td>`;
+          }
+          const hit = !Number.isNaN(dig) && (targetSet.has(dig) || (isTong && targetSet.has(pairDig)));
+          const cls = hit ? "" : "bg-yellow";
+          return `<td class="${cls}" title="${tip}"><span class="cell-mode-tag">${modeLabel}</span><b>${labelVal}</b></td>`;
+        };
+
         if (showCham) {
           h += `<td class="td-cham-ref">${chamRefLabel}</td>`;
           const valsCham = [
-            [r.AM, 2], [r.AN, 5], [r.AO, 6], [r.AP, 3], [r.AQ, 4],
-            [r.AR, 5], [r.AS, 6], [r.AT, 6], [r.AU, 6], [r.AV, 6]
+            [r.AM, 2, 'tong'], [r.AN, 5, 'tong'], [r.AO, 6, 'tong'],
+            [r.AP, 3, 'cham'], [r.AQ, 4, 'cham'],
+            [r.AR, 5, 'cham'], [r.AS, 6, 'cham'],
+            [r.AT, 6, 'cham'], [r.AU, 6, 'cham'], [r.AV, 6, 'cham']
           ];
-          h += valsCham.map(([v, dI]) => renderBridgeCell(v, dI, true)).join("");
+          h += valsCham.map(([v, dI, m]) => renderAmAvCell(v, dI, m)).join("");
         }
 
         if (showPascal) {
