@@ -50,6 +50,25 @@
       line-height: 1.15;
       margin-bottom: 1px;
     }
+    .th-t7-soft {
+      background: #0369a1 !important;
+      color: #ffffff !important;
+    }
+    .th-cn-soft {
+      background: #6d28d9 !important;
+      color: #ffffff !important;
+    }
+    .td-t7-soft {
+      background: #e0f2fe;
+    }
+    .td-cn-soft {
+      background: #f3e8ff;
+    }
+    .td-t7-soft.bg-yellow,
+    .td-cn-soft.bg-yellow,
+    .bg-yellow {
+      background: var(--yellow, #fff200) !important;
+    }
   </style>
 </head>
 <body>
@@ -121,6 +140,7 @@
     }
 
     function computeColumnMaxYellowMap(weeks, allWeeks, auxMap) {
+      const sourceWeeks = Array.isArray(allWeeks) && allWeeks.length ? allWeeks : (weeks || []);
       const colSpecs = [
         { id: "tach_A", kind: "cham", getVal: r => r.A, dIdx: 0 },
         { id: "tach_B", kind: "cham", getVal: r => r.B, dIdx: 0 },
@@ -163,6 +183,12 @@
         { id: "cham_AT", kind: "cham", getVal: r => r.AT, dIdx: 6 },
         { id: "cham_AU", kind: "cham", getVal: r => r.AU, dIdx: 6 },
         { id: "cham_AV", kind: "cham", getVal: r => r.AV, dIdx: 6 },
+        { id: "t7_dpe", kind: "cham", getVal: r => r.Z, dIdx: 5 },
+        { id: "t7_dme", kind: "cham", getVal: r => r.AA, dIdx: 5 },
+        { id: "t7_tde", kind: "tong", getVal: r => r.Z, dIdx: 5 },
+        { id: "cn_dpe", kind: "cham", getVal: r => r.AD, dIdx: 6 },
+        { id: "cn_dme", kind: "cham", getVal: r => r.AE, dIdx: 6 },
+        { id: "cn_tde", kind: "tong", getVal: r => r.AD, dIdx: 6 },
         { id: "pcham_0", kind: "cham", getVal: r => r.AX, dIdx: 0 },
         { id: "pcham_1", kind: "cham", getVal: r => r.AY, dIdx: 1 },
         { id: "pcham_2", kind: "cham", getVal: r => r.AZ, dIdx: 2 },
@@ -183,10 +209,10 @@
       const curMap = {};
       colSpecs.forEach(s => { maxMap[s.id] = 0; curMap[s.id] = 0; });
 
-      weeks.forEach((wk, idx) => {
-        const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
+      sourceWeeks.forEach((wk, idx) => {
+        const prevWk = idx + 1 < sourceWeeks.length ? sourceWeeks[idx + 1] : null;
         const r = computeChamSheetRow(wk, prevWk, auxMap, globalData.daily_prizes);
-        const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(allWeeks, idx, dI));
+        const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(sourceWeeks, idx, dI));
 
         colSpecs.forEach(spec => {
           const rawVal = spec.getVal(r);
@@ -213,7 +239,6 @@
 
       return maxMap;
     }
-
     function renderPage() {
       if (!globalData) return;
       const limit = parseInt(document.getElementById('limit-select').value, 10);
@@ -233,7 +258,7 @@
       h += `<th colspan="7" class="th-gdb">GĐB Gốc 7 Ngày (Cột AF → AL)</th>`;
       if (showCham) {
         h += `<th rowspan="2" class="th-cham-ref">Chạm 2 Số Cuối<br><small>(7 Ngày Sau)</small></th>`;
-        h += `<th colspan="10">Cầu Chạm & Cộng Dồn Tuần (Cột AM → AV)</th>`;
+        h += `<th colspan="16">Cầu Chạm & Cộng Dồn Tuần (T7 & CN)</th>`;
       }
       if (showPascal) {
         h += `<th colspan="7" class="th-sum-cham">Tổng 2 Số Pascal — So Chạm 7N Sau (AX → BD)</th>`;
@@ -261,12 +286,24 @@
 
       if (showCham) {
         const chamCols = [
-          ["c(T4)", "cham_AM", "Tổng"], ["c(T7)", "cham_AN", "Tổng"], ["c(CN)", "cham_AO", "Tổng"],
-          ["e+1(T5)", "cham_AP", "Chạm"], ["e-1(T6)", "cham_AQ", "Chạm"],
-          ["b(G1-T7)", "cham_AR", "Chạm"], ["b(G7-1)+a(G7-4)", "cham_AS", "Chạm"],
-          ["Tổng d(7N)", "cham_AT", "Chạm"], ["Tổng b(7N)", "cham_AU", "Chạm"], ["Tổng c(7N)", "cham_AV", "Chạm"]
+          ["c(T4)", "cham_AM", "Tổng · T4", ""],
+          ["c(T7)", "cham_AN", "Tổng · T7", "th-t7-soft"],
+          ["d+e(T7)", "t7_dpe", "Chạm · T7", "th-t7-soft"],
+          ["d-e(T7)", "t7_dme", "Chạm · T7", "th-t7-soft"],
+          ["Tổng Đề(T7)", "t7_tde", "Tổng · T7", "th-t7-soft"],
+          ["b(G1-T7)", "cham_AR", "Chạm · T7", "th-t7-soft"],
+          ["c(CN)", "cham_AO", "Tổng · CN", "th-cn-soft"],
+          ["d+e(CN)", "cn_dpe", "Chạm · CN", "th-cn-soft"],
+          ["d-e(CN)", "cn_dme", "Chạm · CN", "th-cn-soft"],
+          ["Tổng Đề(CN)", "cn_tde", "Tổng · CN", "th-cn-soft"],
+          ["b(G7-1)+a(G7-4) (CN)", "cham_AS", "Chạm · CN", "th-cn-soft"],
+          ["Tổng d(7N) (CN)", "cham_AT", "Chạm · CN", "th-cn-soft"],
+          ["Tổng b(7N) (CN)", "cham_AU", "Chạm · CN", "th-cn-soft"],
+          ["Tổng c(7N) (CN)", "cham_AV", "Chạm · CN", "th-cn-soft"],
+          ["e+1(T5)", "cham_AP", "Chạm · T5", ""],
+          ["e-1(T6)", "cham_AQ", "Chạm · T6", ""]
         ];
-        h += chamCols.map(([c, id, tagMode]) => `<th>${c}<br><small>[${tagMode}]</small><br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
+        h += chamCols.map(([c, id, tagMode, thCls]) => `<th class="${thCls}">${c}<br><small>[${tagMode}]</small><br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
       }
 
       if (showPascal) {
@@ -334,14 +371,18 @@
 
           const st = dStats[dIdx];
           const dig = parseInt(s, 10);
-          const targetSet = mode === 'cham' ? st.chamSet : st.sumsSet;
+          const isTongMode = (mode === 'tong');
+          const pairDig = (!Number.isNaN(dig) && isTongMode) ? ((dig + 5) % 10) : null;
+          const labelVal = (!Number.isNaN(dig) && isTongMode) ? `${dig}(${pairDig})` : s;
+          const targetSet = isTongMode ? st.sumsSet : st.chamSet;
           const labelSet = `{${Array.from(targetSet).sort().join(",")}}`;
           const tip = st.daysDetail.length
-            ? `GĐB: ${gdb} (Tổng ${sumVal}) → 7 ngày sau (D+1..D+7): ${st.daysDetail.join(", ")} | Tập ${mode === 'cham' ? 'chạm' : 'tổng'}: ${labelSet}`
+            ? `GĐB: ${gdb} (Tổng ${sumVal}) → 7 ngày sau (D+1..D+7): ${st.daysDetail.join(", ")} | Tập ${isTongMode ? 'tổng' : 'chạm'}: ${labelSet}`
             : `GĐB: ${gdb} (Tổng ${sumVal}) → Chờ đủ 7 ngày tiếp theo (D+1..D+7)`;
 
-          const notHit = st.hasFull7 && !Number.isNaN(dig) && !targetSet.has(dig);
-          return `<td class="${notHit ? 'bg-yellow has-corner-sum' : baseCls}" title="${tip}"><b>${s}</b>${cornerHtml}${gdbHtml}</td>`;
+          const hit = !Number.isNaN(dig) && (targetSet.has(dig) || (isTongMode && targetSet.has(pairDig)));
+          const notHit = st.hasFull7 && !Number.isNaN(dig) && !hit;
+          return `<td class="${notHit ? 'bg-yellow has-corner-sum' : baseCls}" title="${tip}"><b>${labelVal}</b>${cornerHtml}${gdbHtml}</td>`;
         };
 
         h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>`;
@@ -362,37 +403,51 @@
         h += [r.AF, r.AG, r.AH, r.AI, r.AJ, r.AK, r.AL]
           .map(v => `<td class="td-gdb">${fmtGdbGrayDe(v)}</td>`).join("");
 
-        const renderAmAvCell = (val, dIdx, mode) => {
+        const dayTagNames = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+        const renderAmAvCell = (val, dIdx, mode, softCls = "") => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
-          if (s === "") return `<td></td>`;
+          if (s === "") return `<td class="${softCls}"></td>`;
           const st = dStats[dIdx];
           const dig = parseInt(s, 10);
           const isTong = (mode === 'tong');
           const pairDig = (!Number.isNaN(dig) && isTong) ? ((dig + 5) % 10) : null;
           const labelVal = (!Number.isNaN(dig) && isTong) ? `${dig}(${pairDig})` : s;
-          const modeLabel = isTong ? "Tổng" : "Chạm";
+          const dayShort = dayTagNames[dIdx] || "";
+          const modeLabel = `${isTong ? "Tổng" : "Chạm"} (${dayShort})`;
           const targetSet = isTong ? st.sumsSet : st.chamSet;
           const labelSet = `{${Array.from(targetSet).sort().join(",")}}`;
           const tip = st.daysDetail.length
-            ? `${modeLabel} ${labelVal} | D+1..D+7: ${st.daysDetail.join(", ")} | Tập ${modeLabel.toLowerCase()}: ${labelSet}`
-            : `${modeLabel} ${labelVal} | Chờ đủ 7 ngày tiếp theo (D+1..D+7)`;
+            ? `${modeLabel} ${labelVal} (mốc ${dayShort}) | D+1..D+7: ${st.daysDetail.join(", ")} | Tập ${isTong ? "tổng" : "chạm"}: ${labelSet}`
+            : `${modeLabel} ${labelVal} (mốc ${dayShort}) | Chờ đủ 7 ngày tiếp theo (D+1..D+7)`;
           if (!st.hasFull7) {
-            return `<td title="${tip}"><span class="cell-mode-tag">${modeLabel}</span><b>${labelVal}</b></td>`;
+            return `<td class="${softCls}" title="${tip}"><span class="cell-mode-tag">${modeLabel}</span><b>${labelVal}</b></td>`;
           }
           const hit = !Number.isNaN(dig) && (targetSet.has(dig) || (isTong && targetSet.has(pairDig)));
-          const cls = hit ? "" : "bg-yellow";
+          const cls = hit ? softCls : (softCls ? `${softCls} bg-yellow` : "bg-yellow");
           return `<td class="${cls}" title="${tip}"><span class="cell-mode-tag">${modeLabel}</span><b>${labelVal}</b></td>`;
         };
 
         if (showCham) {
           h += `<td class="td-cham-ref">${chamRefLabel}</td>`;
           const valsCham = [
-            [r.AM, 2, 'tong'], [r.AN, 5, 'tong'], [r.AO, 6, 'tong'],
-            [r.AP, 3, 'cham'], [r.AQ, 4, 'cham'],
-            [r.AR, 5, 'cham'], [r.AS, 6, 'cham'],
-            [r.AT, 6, 'cham'], [r.AU, 6, 'cham'], [r.AV, 6, 'cham']
+            [r.AM, 2, 'tong', ""],
+            [r.AN, 5, 'tong', "td-t7-soft"],
+            [r.Z,  5, 'cham', "td-t7-soft"],
+            [r.AA, 5, 'cham', "td-t7-soft"],
+            [r.Z,  5, 'tong', "td-t7-soft"],
+            [r.AR, 5, 'cham', "td-t7-soft"],
+            [r.AO, 6, 'tong', "td-cn-soft"],
+            [r.AD, 6, 'cham', "td-cn-soft"],
+            [r.AE, 6, 'cham', "td-cn-soft"],
+            [r.AD, 6, 'tong', "td-cn-soft"],
+            [r.AS, 6, 'cham', "td-cn-soft"],
+            [r.AT, 6, 'cham', "td-cn-soft"],
+            [r.AU, 6, 'cham', "td-cn-soft"],
+            [r.AV, 6, 'cham', "td-cn-soft"],
+            [r.AP, 3, 'cham', ""],
+            [r.AQ, 4, 'cham', ""]
           ];
-          h += valsCham.map(([v, dI, m]) => renderAmAvCell(v, dI, m)).join("");
+          h += valsCham.map(([v, dI, m, sCls]) => renderAmAvCell(v, dI, m, sCls)).join("");
         }
 
         if (showPascal) {
