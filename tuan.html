@@ -261,6 +261,46 @@
       font-weight: 800;
       color: #0f172a;
     }
+    .nuoi-proj-row {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #0f172a;
+    }
+    .nuoi-proj-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .nuoi-proj-chip {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: #fff;
+      border: 1px solid #93c5fd;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+    .nuoi-proj-chip.pos {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #15803d;
+    }
+    .nuoi-proj-chip.neg {
+      border-color: #fca5a5;
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+    .nuoi-detail-table tr.row-proj td {
+      background: #f8fafc;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -375,6 +415,7 @@
       </div>
 
       <div class="nuoi-summary" id="nuoi-summary-box"></div>
+      <div class="nuoi-proj-row" id="nuoi-proj-if-hit-box"></div>
       <div class="nuoi-table-wrap" id="nuoi-detail-table-wrap"></div>
     </div>
 
@@ -575,6 +616,15 @@
             <input type="number" id="nuoi-day-amt-${i}" min="0" step="1000" value="${val}" oninput="onSingleDayAmtInput(${i}, this.value)" />
             <span class="day-cost-sub">Gốc (${countNums}s × 0,75): ${formatVND(daySpent)}</span>
             ${statusLine}
+            <span class="day-res-sub" style="color:#0f172a;">Nếu trúng ngày ${i}: ${(() => {
+              const payout = Math.max(1, Number(document.getElementById("nuoi-payout").value) || 70);
+              const cumSpent = draftDailyAmts.slice(0, i).reduce((acc, x) => acc + (Math.max(0, Number(x) || 0) * countNums * 0.75), 0);
+              const winIfHit = val * payout;
+              const pnlIfHit = winIfHit - cumSpent;
+              const sgn = pnlIfHit >= 0 ? "+" : "";
+              const col = pnlIfHit >= 0 ? "#15803d" : "#b91c1c";
+              return `<b style="color:${col};">${sgn}${formatVND(pnlIfHit)}</b>`;
+            })()}</span>
           </div>
         `;
       }
@@ -971,6 +1021,63 @@
           <td></td>
         </tr>` : "";
 
+      const projBox = document.getElementById("nuoi-proj-if-hit-box");
+      const targetForProj = savedList.length > 0 ? savedList : (draftCfg.nums.length > 0 ? [draftCfg] : []);
+      if (projBox) {
+        if (!targetForProj.length) {
+          projBox.innerHTML = `<b>Dự tính nếu trúng theo ngày:</b> Nhập số nuôi và mức tiền từng ngày để xem nếu trúng ở Ngày 1, Ngày 2, Ngày 3... thì lời/lỗ bao nhiêu.`;
+        } else {
+          // Compute cumulative cost up to day i across active dans, and net profit if hitting on day i
+          const chips = [];
+          for (let i = 1; i <= maxDays; i++) {
+            const dStr = addDaysToISO(refStartISO, i - 1).shortStr;
+            let cumCostUpToI = 0;
+            let winIfHitOnI = 0;
+            targetForProj.forEach(dan => {
+              if (i <= dan.days) {
+                for (let k = 1; k <= i; k++) {
+                  cumCostUpToI += getPerNumAmtForDay(dan, k) * dan.nums.length * 0.75;
+                }
+                winIfHitOnI += getPerNumAmtForDay(dan, i) * dan.payout;
+              }
+            });
+            const pnlIfHit = winIfHitOnI - cumCostUpToI;
+            const sign = pnlIfHit >= 0 ? "+" : "";
+            const cls = pnlIfHit >= 0 ? "pos" : "neg";
+            chips.push(`<span class="nuoi-proj-chip ${cls}">Ngày ${i} (${dStr}) trúng → <b>${sign}${formatVND(pnlIfHit)}</b> <small>(gốc lũy kế: ${formatVND(cumCostUpToI)})</small></span>`);
+          }
+          const scopeLabel = savedList.length > 0 ? `${savedList.length} dàn đã lưu` : "dàn đang nhập";
+          projBox.innerHTML = `<div><b>📊 Dự tính lời / lỗ nếu trúng ở từng ngày (${scopeLabel}):</b></div><div class="nuoi-proj-chips">${chips.join("")}</div>`;
+        }
+      }
+
+      const projTableRowCells = [];
+      for (let i = 1; i <= maxDays; i++) {
+        const dStr = addDaysToISO(refStartISO, i - 1).shortStr;
+        let cumCostUpToI = 0;
+        let winIfHitOnI = 0;
+        const activeDans = savedList.length > 0 ? savedList : (draftCfg.nums.length > 0 ? [draftCfg] : []);
+        activeDans.forEach(dan => {
+          if (i <= dan.days) {
+            for (let k = 1; k <= i; k++) {
+              cumCostUpToI += getPerNumAmtForDay(dan, k) * dan.nums.length * 0.75;
+            }
+            winIfHitOnI += getPerNumAmtForDay(dan, i) * dan.payout;
+          }
+        });
+        const pnlIfHit = winIfHitOnI - cumCostUpToI;
+        const sign = pnlIfHit >= 0 ? "+" : "";
+        const col = pnlIfHit >= 0 ? "#15803d" : "#b91c1c";
+        projTableRowCells.push(`<td><div style="font-size:10px; color:#475569;">Nếu trúng N${i} (${dStr}):</div><span style="color:${col}; font-weight:800;">${sign}${formatVND(pnlIfHit)}</span></td>`);
+      }
+
+      const projRowHtml = `
+        <tr class="row-proj">
+          <td colspan="2" style="text-align:right; color:#1e3a8a;">DỰ TÍNH LỜI/LỖ NẾU TRÚNG TỪNG NGÀY:</td>
+          ${projTableRowCells.join("")}
+          <td colspan="3" style="text-align:left; font-size:11px; color:#475569;">(Đã trừ vốn lũy kế tới ngày đó)</td>
+        </tr>`;
+
       box.innerHTML = `Đã lưu <b>${savedList.length}</b> dàn nuôi${draftCfg.nums.length ? ' (kèm 1 dàn đang nhập ở dòng vàng nhạt)' : ''}. <b>Tiền gốc mỗi ngày:</b> Mức vào tiền × Số con × 0,75 · <b>Lãi/Lỗ:</b> Tự tính theo các ngày đã có kết quả xổ số.`;
 
       tblWrap.innerHTML = `
@@ -989,6 +1096,7 @@
           <tbody>
             ${bodyRowsHtml}
             ${totalRowHtml}
+            ${projRowHtml}
           </tbody>
         </table>
       `;
