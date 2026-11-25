@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Thongke.web.app - Trang Chủ Kết Quả XSMB</title>
   <link rel="stylesheet" href="styles.css" />
-  <script>window.__dataP=fetch("data.json",{cache:"no-cache"});</script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
   <header class="top-bar">
@@ -102,6 +102,13 @@
               <option value="single" selected>1 ngày đang chọn</option>
               <option value="recent3">3 ngày gần nhất</option>
               <option value="recent7">7 ngày gần nhất</option>
+              <option value="recent30">30 ngày gần nhất</option>
+              <option value="recent60">60 ngày gần nhất</option>
+              <option value="recent100">100 ngày gần nhất</option>
+              <option value="year1">1 năm (365 ngày)</option>
+              <option value="year3">3 năm gần nhất</option>
+              <option value="year5">5 năm gần nhất</option>
+              <option value="all">Tất cả nhiều năm</option>
             </select>
           </label>
         </div>
@@ -197,10 +204,40 @@
       const startIdx = Math.max(0, HOME_AVAILABLE_BOARDS.findIndex(x => x.date === chosenDate));
 
       let list = [];
-      if (mode === 'recent3') list = HOME_AVAILABLE_BOARDS.slice(0, 3);
-      else if (mode === 'recent7') list = HOME_AVAILABLE_BOARDS.slice(0, 7);
-      else list = [HOME_AVAILABLE_BOARDS[startIdx]];
+      if (mode === 'recent3') {
+        list = HOME_AVAILABLE_BOARDS.slice(startIdx, startIdx + 3);
+      } else if (mode === 'recent7') {
+        list = HOME_AVAILABLE_BOARDS.slice(startIdx, startIdx + 7);
+      } else if (mode === 'recent30') {
+        list = HOME_AVAILABLE_BOARDS.slice(startIdx, startIdx + 30);
+      } else if (mode === 'recent60') {
+        list = HOME_AVAILABLE_BOARDS.slice(startIdx, startIdx + 60);
+      } else if (mode === 'recent100') {
+        list = HOME_AVAILABLE_BOARDS.slice(startIdx, startIdx + 100);
+      } else if (mode === 'year1' || mode === 'year3' || mode === 'year5') {
+        const years = mode === 'year1' ? 1 : (mode === 'year3' ? 3 : 5);
+        const anchor = HOME_AVAILABLE_BOARDS[startIdx];
+        const parts = anchor && anchor.date ? anchor.date.split('/') : [];
+        if (parts.length === 3) {
+          const anchorDt = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+          const cutoffDt = new Date(anchorDt);
+          cutoffDt.setFullYear(cutoffDt.getFullYear() - years);
+          list = HOME_AVAILABLE_BOARDS.slice(startIdx).filter(item => {
+            const p = item.date ? item.date.split('/') : [];
+            if (p.length !== 3) return false;
+            const d = new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
+            return d >= cutoffDt && d <= anchorDt;
+          });
+        } else {
+          list = HOME_AVAILABLE_BOARDS.slice(startIdx, startIdx + years * 365);
+        }
+      } else if (mode === 'all') {
+        list = HOME_AVAILABLE_BOARDS.slice(startIdx);
+      } else {
+        list = [HOME_AVAILABLE_BOARDS[startIdx]];
+      }
 
+      if (!list.length) list = [HOME_AVAILABLE_BOARDS[startIdx]];
       stack.innerHTML = list.map(buildBoardHtml).join("");
     }
 
