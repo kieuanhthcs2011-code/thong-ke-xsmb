@@ -31,59 +31,16 @@
     .td-sum-t { background: #eff6ff; font-weight: 800; color: #1e3a8a; }
     .pascal-gdb-sub { display: block; font-size: 10px; font-weight: 600; color: #475569; margin-top: 2px; }
     .bg-yellow .pascal-gdb-sub { color: #991b1b; }
-    .yellow-streak-panel {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
+    .gmax-sub {
+      display: inline-block;
+      margin-top: 3px;
+      padding: 1px 6px;
       border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-    }
-    .yellow-streak-head {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .yellow-streak-title {
+      background: #fff200;
+      color: #b80000;
+      font-size: 10.5px;
       font-weight: 800;
-      font-size: 13.5px;
-      color: #0f172a;
-    }
-    .yellow-streak-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 8px;
-    }
-    .yellow-streak-card {
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 7px 9px;
-      background: #f8fafc;
-      font-size: 12px;
-    }
-    .yellow-streak-card.has-max {
-      background: #fefce8;
-      border-color: #eab308;
-    }
-    .yellow-streak-col {
-      font-weight: 800;
-      color: #1e3a8a;
-      font-size: 12px;
-    }
-    .yellow-streak-val {
-      margin-top: 2px;
-      font-size: 14px;
-      font-weight: 900;
-      color: #b91c1c;
-    }
-    .yellow-streak-cur {
-      margin-top: 2px;
-      font-size: 11px;
-      color: #475569;
-      font-weight: 600;
+      line-height: 1.25;
     }
   </style>
 </head>
@@ -134,15 +91,7 @@
       </div>
     </div>
 
-        <div class="yellow-streak-panel" id="yellow-streak-box">
-      <div class="yellow-streak-head">
-        <span class="yellow-streak-title">📊 THỐNG KÊ CHUỖI Ô MÀU VÀNG LIÊN TIẾP CAO NHẤT TỪNG CỘT</span>
-        <span style="font-size:11.5px; color:#475569;">Đếm số ô màu vàng liền kề (không trúng 7 ngày sau) trên các hàng đang hiển thị</span>
-      </div>
-      <div class="yellow-streak-grid" id="yellow-streak-grid"></div>
-    </div>
-
-    <div class="table-wrap">
+        <div class="table-wrap">
       <table class="stat-table" id="tbl-cham"></table>
     </div>
 
@@ -163,12 +112,105 @@
       renderPage();
     }
 
+    function computeColumnMaxYellowMap(weeks, allWeeks, auxMap) {
+      const colSpecs = [
+        { id: "tach_A", kind: "cham", getVal: r => r.A, dIdx: 0 },
+        { id: "tach_B", kind: "cham", getVal: r => r.B, dIdx: 0 },
+        { id: "tach_C", kind: "cham", getVal: r => r.C, dIdx: 0 },
+        { id: "tach_D", kind: "cham", getVal: r => r.D, dIdx: 0 },
+        { id: "tach_E", kind: "cham", getVal: r => r.E, dIdx: 0 },
+        { id: "tach_F", kind: "cham", getVal: r => r.F, dIdx: 0 },
+        { id: "tach_G", kind: "cham", getVal: r => r.G, dIdx: 0 },
+        { id: "tach_H", kind: "cham", getVal: r => r.H, dIdx: 1 },
+        { id: "tach_I", kind: "cham", getVal: r => r.I, dIdx: 1 },
+        { id: "tach_J", kind: "cham", getVal: r => r.J, dIdx: 1 },
+        { id: "tach_K", kind: "cham", getVal: r => r.K, dIdx: 1 },
+        { id: "tach_L", kind: "cham", getVal: r => r.L, dIdx: 2 },
+        { id: "tach_M", kind: "cham", getVal: r => r.M, dIdx: 2 },
+        { id: "tach_N", kind: "cham", getVal: r => r.N, dIdx: 2 },
+        { id: "tach_O", kind: "cham", getVal: r => r.O, dIdx: 2 },
+        { id: "tach_P", kind: "cham", getVal: r => r.P, dIdx: 3 },
+        { id: "tach_Q", kind: "cham", getVal: r => r.Q, dIdx: 3 },
+        { id: "tach_R", kind: "cham", getVal: r => r.R, dIdx: 3 },
+        { id: "tach_S", kind: "cham", getVal: r => r.S, dIdx: 3 },
+        { id: "tach_T", kind: "cham", getVal: r => r.T, dIdx: 4 },
+        { id: "tach_U", kind: "cham", getVal: r => r.U, dIdx: 4 },
+        { id: "tach_V", kind: "cham", getVal: r => r.V, dIdx: 4 },
+        { id: "tach_W", kind: "cham", getVal: r => r.W, dIdx: 4 },
+        { id: "tach_X", kind: "cham", getVal: r => r.X, dIdx: 5 },
+        { id: "tach_Y", kind: "cham", getVal: r => r.Y, dIdx: 5 },
+        { id: "tach_Z", kind: "cham", getVal: r => r.Z, dIdx: 5 },
+        { id: "tach_AA", kind: "cham", getVal: r => r.AA, dIdx: 5 },
+        { id: "tach_AB", kind: "cham", getVal: r => r.AB, dIdx: 6 },
+        { id: "tach_AC", kind: "cham", getVal: r => r.AC, dIdx: 6 },
+        { id: "tach_AD", kind: "cham", getVal: r => r.AD, dIdx: 6 },
+        { id: "tach_AE", kind: "cham", getVal: r => r.AE, dIdx: 6 },
+        { id: "cham_AM", kind: "cham", getVal: r => r.AM, dIdx: 2 },
+        { id: "cham_AN", kind: "cham", getVal: r => r.AN, dIdx: 5 },
+        { id: "cham_AO", kind: "cham", getVal: r => r.AO, dIdx: 6 },
+        { id: "cham_AP", kind: "cham", getVal: r => r.AP, dIdx: 3 },
+        { id: "cham_AQ", kind: "cham", getVal: r => r.AQ, dIdx: 4 },
+        { id: "cham_AR", kind: "cham", getVal: r => r.AR, dIdx: 5 },
+        { id: "cham_AS", kind: "cham", getVal: r => r.AS, dIdx: 6 },
+        { id: "cham_AT", kind: "cham", getVal: r => r.AT, dIdx: 6 },
+        { id: "cham_AU", kind: "cham", getVal: r => r.AU, dIdx: 6 },
+        { id: "cham_AV", kind: "cham", getVal: r => r.AV, dIdx: 6 },
+        { id: "pcham_0", kind: "cham", getVal: r => r.AX, dIdx: 0 },
+        { id: "pcham_1", kind: "cham", getVal: r => r.AY, dIdx: 1 },
+        { id: "pcham_2", kind: "cham", getVal: r => r.AZ, dIdx: 2 },
+        { id: "pcham_3", kind: "cham", getVal: r => r.BA, dIdx: 3 },
+        { id: "pcham_4", kind: "cham", getVal: r => r.BB, dIdx: 4 },
+        { id: "pcham_5", kind: "cham", getVal: r => r.BC, dIdx: 5 },
+        { id: "pcham_6", kind: "cham", getVal: r => r.BD, dIdx: 6 },
+        { id: "ptong_0", kind: "tong", getVal: r => r.AX, dIdx: 0 },
+        { id: "ptong_1", kind: "tong", getVal: r => r.AY, dIdx: 1 },
+        { id: "ptong_2", kind: "tong", getVal: r => r.AZ, dIdx: 2 },
+        { id: "ptong_3", kind: "tong", getVal: r => r.BA, dIdx: 3 },
+        { id: "ptong_4", kind: "tong", getVal: r => r.BB, dIdx: 4 },
+        { id: "ptong_5", kind: "tong", getVal: r => r.BC, dIdx: 5 },
+        { id: "ptong_6", kind: "tong", getVal: r => r.BD, dIdx: 6 }
+      ];
+
+      const maxMap = {};
+      const curMap = {};
+      colSpecs.forEach(s => { maxMap[s.id] = 0; curMap[s.id] = 0; });
+
+      weeks.forEach((wk, idx) => {
+        const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
+        const r = computeChamSheetRow(wk, prevWk, auxMap, globalData.daily_prizes);
+        const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(allWeeks, idx, dI));
+
+        colSpecs.forEach(spec => {
+          const rawVal = spec.getVal(r);
+          const s = (rawVal !== undefined && rawVal !== null) ? String(rawVal).trim() : "";
+          const st = dStats[spec.dIdx];
+          let isYellow = false;
+          if (s !== "" && st && st.hasFull7) {
+            const dig = parseInt(s, 10);
+            const targetSet = spec.kind === "cham" ? st.chamSet : st.sumsSet;
+            if (!Number.isNaN(dig) && !targetSet.has(dig)) {
+              isYellow = true;
+            }
+          }
+          if (isYellow) {
+            curMap[spec.id] += 1;
+            if (curMap[spec.id] > maxMap[spec.id]) maxMap[spec.id] = curMap[spec.id];
+          } else {
+            curMap[spec.id] = 0;
+          }
+        });
+      });
+
+      return maxMap;
+    }
+
     function renderPage() {
       if (!globalData) return;
       const limit = parseInt(document.getElementById('limit-select').value, 10);
       const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
       const weeks = allWeeks.slice(0, limit);
       const auxMap = globalData.cham_aux_by_mon_gdb || {};
+      const gMaxMap = computeColumnMaxYellowMap(weeks, allWeeks, auxMap);
 
       const showTach = (currentGroup === 'all' || currentGroup === 'tach');
       const showCham = (currentGroup === 'all' || currentGroup === 'cham');
@@ -192,16 +234,16 @@
 
       if (showTach) {
         const tachCols = [
-          "d+e(T2)", "d-e(T2)", "d+e(G7-4)", "d+e(G1)", "b(G1)",
-          "b(T2)", "c(T2)",
-          "c(T3)", "d+e(T3)", "d-e(T3)", "b(T3)",
-          "b(T4)", "c(T4)", "d+e(T4)", "d-e(T4)",
-          "b(T5)", "c(T5)", "e+d(T5)", "e-d(T5)",
-          "b(T6)", "c(T6)", "e+d(T6)", "e-d(T6)",
-          "b(T7)", "c(T7)", "e+d(T7)", "e-d(T7)",
-          "b(CN)", "c(CN)", "e+d(CN)", "e-d(CN)"
+          ["d+e(T2)", "tach_A"], ["d-e(T2)", "tach_B"], ["d+e(G7-4)", "tach_C"], ["d+e(G1)", "tach_D"], ["b(G1)", "tach_E"],
+          ["b(T2)", "tach_F"], ["c(T2)", "tach_G"],
+          ["c(T3)", "tach_H"], ["d+e(T3)", "tach_I"], ["d-e(T3)", "tach_J"], ["b(T3)", "tach_K"],
+          ["b(T4)", "tach_L"], ["c(T4)", "tach_M"], ["d+e(T4)", "tach_N"], ["d-e(T4)", "tach_O"],
+          ["b(T5)", "tach_P"], ["c(T5)", "tach_Q"], ["e+d(T5)", "tach_R"], ["e-d(T5)", "tach_S"],
+          ["b(T6)", "tach_T"], ["c(T6)", "tach_U"], ["e+d(T6)", "tach_V"], ["e-d(T6)", "tach_W"],
+          ["b(T7)", "tach_X"], ["c(T7)", "tach_Y"], ["e+d(T7)", "tach_Z"], ["e-d(T7)", "tach_AA"],
+          ["b(CN)", "tach_AB"], ["c(CN)", "tach_AC"], ["e+d(CN)", "tach_AD"], ["e-d(CN)", "tach_AE"]
         ];
-        h += tachCols.map(c => `<th>${c}</th>`).join("");
+        h += tachCols.map(([c, id]) => `<th>${c}<br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
       }
 
       h += ["T2 (AF)", "T3 (AG)", "T4 (AH)", "T5 (AI)", "T6 (AJ)", "T7 (AK)", "CN (AL)"]
@@ -209,17 +251,25 @@
 
       if (showCham) {
         const chamCols = [
-          "c(T4)", "c(T7)", "c(CN)", "e+1(T5)", "e-1(T6)",
-          "b(G1-T7)", "b(G7-1)+a(G7-4)", "Tổng d(7N)", "Tổng b(7N)", "Tổng c(7N)"
+          ["c(T4)", "cham_AM"], ["c(T7)", "cham_AN"], ["c(CN)", "cham_AO"], ["e+1(T5)", "cham_AP"], ["e-1(T6)", "cham_AQ"],
+          ["b(G1-T7)", "cham_AR"], ["b(G7-1)+a(G7-4)", "cham_AS"], ["Tổng d(7N)", "cham_AT"], ["Tổng b(7N)", "cham_AU"], ["Tổng c(7N)", "cham_AV"]
         ];
-        h += chamCols.map(c => `<th>${c}</th>`).join("");
+        h += chamCols.map(([c, id]) => `<th>${c}<br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
       }
 
       if (showPascal) {
-        h += ["T2(AX)", "T3(AY)", "T4(AZ)", "T5(BA)", "T6(BB)", "T7(BC)", "CN(BD)"]
-          .map(c => `<th class="th-sum-cham">${c}<br><small>(So Chạm)</small></th>`).join("");
-        h += ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
-          .map(c => `<th class="th-sum-tong">${c}<br><small>(So Tổng)</small></th>`).join("");
+        const pChamHeaders = [
+          ["T2(AX)", "pcham_0"], ["T3(AY)", "pcham_1"], ["T4(AZ)", "pcham_2"],
+          ["T5(BA)", "pcham_3"], ["T6(BB)", "pcham_4"], ["T7(BC)", "pcham_5"], ["CN(BD)", "pcham_6"]
+        ];
+        h += pChamHeaders.map(([c, id]) => `<th class="th-sum-cham">${c}<br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
+
+        const pTongHeaders = [
+          ["T2", "ptong_0"], ["T3", "ptong_1"], ["T4", "ptong_2"],
+          ["T5", "ptong_3"], ["T6", "ptong_4"], ["T7", "ptong_5"], ["CN", "ptong_6"]
+        ];
+        h += pTongHeaders.map(([c, id]) => `<th class="th-sum-tong">${c}<br><span class="gmax-sub">G.max (${gMaxMap[id] || 0})</span></th>`).join("");
+
         const days = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
         days.forEach(d => {
           h += `<th class="th-pascal">${d}-4s</th><th class="th-pascal">${d}-3s</th><th class="th-pascal">${d}-2s</th>`;
@@ -325,111 +375,7 @@
       renderYellowStreakStats(weeks, allWeeks, auxMap, showTach, showCham, showPascal);
     }
 
-    function renderYellowStreakStats(weeks, allWeeks, auxMap, showTach, showCham, showPascal) {
-      const grid = document.getElementById("yellow-streak-grid");
-      if (!grid || !globalData) return;
-
-      // Build ordered list of visible columns matching the rendered table rows
-      const cols = [];
-      if (showTach) {
-        const tachMeta = [
-          ["d+e(T2)", 0, "A"], ["d-e(T2)", 0, "B"], ["d+e(G7-4)", 0, "C"], ["d+e(G1)", 0, "D"], ["b(G1)", 0, "E"],
-          ["b(T2)", 0, "F"], ["c(T2)", 0, "G"],
-          ["c(T3)", 1, "H"], ["d+e(T3)", 1, "I"], ["d-e(T3)", 1, "J"], ["b(T3)", 1, "K"],
-          ["b(T4)", 2, "L"], ["c(T4)", 2, "M"], ["d+e(T4)", 2, "N"], ["d-e(T4)", 2, "O"],
-          ["b(T5)", 3, "P"], ["c(T5)", 3, "Q"], ["e+d(T5)", 3, "R"], ["e-d(T5)", 3, "S"],
-          ["b(T6)", 4, "T"], ["c(T6)", 4, "U"], ["e+d(T6)", 4, "V"], ["e-d(T6)", 4, "W"],
-          ["b(T7)", 5, "X"], ["c(T7)", 5, "Y"], ["e+d(T7)", 5, "Z"], ["e-d(T7)", 5, "AA"],
-          ["b(CN)", 6, "AB"], ["c(CN)", 6, "AC"], ["e+d(CN)", 6, "AD"], ["e-d(CN)", 6, "AE"]
-        ];
-        tachMeta.forEach(([label, dIdx, key]) => {
-          cols.push({ label, kind: "cham", getVal: r => r[key], dIdx });
-        });
-      }
-      if (showCham) {
-        const chamMeta = [
-          ["c(T4)", 2, "AM"], ["c(T7)", 5, "AN"], ["c(CN)", 6, "AO"], ["e+1(T5)", 3, "AP"], ["e-1(T6)", 4, "AQ"],
-          ["b(G1-T7)", 5, "AR"], ["b(G7-1)+a(G7-4)", 6, "AS"], ["Tổng d(7N)", 6, "AT"], ["Tổng b(7N)", 6, "AU"], ["Tổng c(7N)", 6, "AV"]
-        ];
-        chamMeta.forEach(([label, dIdx, key]) => {
-          cols.push({ label, kind: "cham", getVal: r => r[key], dIdx });
-        });
-      }
-      if (showPascal) {
-        const pKeys = ["AX", "AY", "AZ", "BA", "BB", "BC", "BD"];
-        const pDays = ["T2(AX)", "T3(AY)", "T4(AZ)", "T5(BA)", "T6(BB)", "T7(BC)", "CN(BD)"];
-        pKeys.forEach((key, dIdx) => {
-          cols.push({ label: `${pDays[dIdx]} Chạm`, kind: "cham", getVal: r => r[key], dIdx });
-        });
-        const tDays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-        pKeys.forEach((key, dIdx) => {
-          cols.push({ label: `${tDays[dIdx]} Tổng`, kind: "tong", getVal: r => r[key], dIdx });
-        });
-      }
-
-      // Evaluate yellow state per column across weeks
-      const stats = cols.map(c => ({
-        label: c.label,
-        maxStreak: 0,
-        curStreak: 0,
-        yellowCount: 0,
-        flags: []
-      }));
-
-      weeks.forEach((wk, idx) => {
-        const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
-        const r = computeChamSheetRow(wk, prevWk, auxMap, globalData.daily_prizes);
-        const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(allWeeks, idx, dI));
-
-        cols.forEach((c, cIdx) => {
-          const rawVal = c.getVal(r);
-          const s = (rawVal !== undefined && rawVal !== null) ? String(rawVal).trim() : "";
-          const st = dStats[c.dIdx];
-          let isYellow = false;
-          if (s !== "" && st && st.hasFull7) {
-            const dig = parseInt(s, 10);
-            const targetSet = c.kind === "cham" ? st.chamSet : st.sumsSet;
-            if (!Number.isNaN(dig) && !targetSet.has(dig)) {
-              isYellow = true;
-            }
-          }
-          stats[cIdx].flags.push(isYellow);
-          if (isYellow) {
-            stats[cIdx].yellowCount += 1;
-            stats[cIdx].curStreak += 1;
-            if (stats[cIdx].curStreak > stats[cIdx].maxStreak) {
-              stats[cIdx].maxStreak = stats[cIdx].curStreak;
-            }
-          } else {
-            stats[cIdx].curStreak = 0;
-          }
-        });
-      });
-
-      // Compute running yellow streak at end of visible slice
-      stats.forEach(st => {
-        let run = 0;
-        for (let i = st.flags.length - 1; i >= 0; i--) {
-          if (st.flags[i]) run += 1;
-          else break;
-        }
-        st.runningEnd = run;
-      });
-
-      const priority = stats.slice().sort((a, b) => (b.maxStreak - a.maxStreak) || (b.yellowCount - a.yellowCount));
-      const topCards = priority.slice(0, 14);
-
-      grid.innerHTML = topCards.map(item => {
-        const hasMax = item.maxStreak > 0;
-        return `<div class="yellow-streak-card ${hasMax ? 'has-max' : ''}">
-          <div class="yellow-streak-col">${item.label}</div>
-          <div class="yellow-streak-val">Gan vàng max: ${item.maxStreak} ô</div>
-          <div class="yellow-streak-cur">Tổng vàng: ${item.yellowCount} ô · Cuối chuỗi: ${item.runningEnd} ô</div>
-        </div>`;
-      }).join("");
-    }
-
-    loadSharedData(renderPage);
+loadSharedData(renderPage);
   </script>
 </body>
 </html>
