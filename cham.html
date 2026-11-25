@@ -157,7 +157,7 @@
         const nextChamSet = new Set();
         const nextTongSet = new Set();
         let hasNextData = false;
-        if (nextWk && Array.isArray(nextWk.nums)) {
+        if (nextWk && Array.isArray(nextWk.nums) && nextWk.nums.filter(x => x && x.length >= 2).length === 7) {
           nextWk.nums.forEach(num => {
             if (num && num.length >= 2) {
               hasNextData = true;

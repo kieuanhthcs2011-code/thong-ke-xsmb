@@ -28,6 +28,37 @@ function canForm2Digit(fiveDigits, target2) {
   return false;
 }
 
+
+function getNext7ConsecutiveDaysStats(allWeeks, wIdx, dIdx) {
+  const sumsSet = new Set();
+  const chamSet = new Set();
+  const daysDetail = [];
+  for (let k = 1; k <= 7; k++) {
+    const totalOffset = dIdx + k;
+    const tw = wIdx - Math.floor(totalOffset / 7);
+    const td = totalOffset % 7;
+    if (tw < 0 || tw >= allWeeks.length) break;
+    const num = allWeeks[tw].nums[td] || "";
+    if (!num || num.length < 2) break;
+    const d1 = parseInt(num[num.length - 2], 10);
+    const d2 = parseInt(num[num.length - 1], 10);
+    const s = (d1 + d2) % 10;
+    sumsSet.add(s);
+    chamSet.add(d1);
+    chamSet.add(d2);
+    const dt = new Date(allWeeks[tw].mDt);
+    dt.setDate(allWeeks[tw].mDt.getDate() + td);
+    daysDetail.push(`${formatShortDate(dt)}:${num.slice(-2)}(T${s})`);
+  }
+  return {
+    count: daysDetail.length,
+    hasFull7: daysDetail.length === 7,
+    sumsSet,
+    chamSet,
+    daysDetail
+  };
+}
+
 function getNormalizedWeeks(rawWeeks) {
   const mapByMon = new Map();
   const baseMon = new Date(2026, 10, 23);
@@ -224,22 +255,20 @@ function exportFullWorkbook() {
   ws1["!cols"] = [{ wch: 24 }, ...Array(7).fill({ wch: 22 })];
   XLSX.utils.book_append_sheet(wb, ws1, "1. GDB Theo Tuan");
 
-  // Sheet 2
-  const s2Rows = [ ["Tuần", "Tập Tổng 7 ngày sau", ...Array.from({ length: 35 }, (_, i) => `Cột ${i + 1}`)].map(h => ({ v: h, s: headerStyle })) ];
+  // Sheet 2 (So sánh từng ngày với 7 ngày liên tiếp ngay sau ngày đó)
+  const s2Rows = [ ["Tuần", "Tập Tổng 7N sau T2", ...Array.from({ length: 35 }, (_, i) => `Cột ${i + 1}`)].map(h => ({ v: h, s: headerStyle })) ];
   allWeeks.slice(0, 52).forEach((wk, idx) => {
     const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
-    const nextWeek = idx > 0 ? allWeeks[idx - 1] : null;
-    const nextSumsSet = new Set();
-    if (nextWeek) nextWeek.nums.forEach(n => { const s = sumLast2(n); if (s !== null) nextSumsSet.add(s); });
-    const hasNext = nextSumsSet.size > 0;
-    const sumsLabel = hasNext ? `{${Array.from(nextSumsSet).sort().join(",")}}` : "Chờ 7 ngày sau";
+    const monNext7 = getNext7ConsecutiveDaysStats(allWeeks, idx, 0);
+    const sumsLabel = monNext7.hasFull7 ? `{${Array.from(monNext7.sumsSet).sort().join(",")}}` : `Đang có ${monNext7.count}/7N`;
     const row = [{ v: `${tag} (${wk.label})`, s: baseCellStyle }, { v: sumsLabel, s: baseCellStyle }];
     for (let d = 0; d < 7; d++) {
       const num = wk.nums[d] || "";
+      const next7 = getNext7ConsecutiveDaysStats(allWeeks, idx, d);
       for (let k = 0; k < 5; k++) {
         const ch = num[k] !== undefined ? num[k] : "";
-        if (ch !== "" && hasNext) {
-          const isY = !nextSumsSet.has(parseInt(ch, 10));
+        if (ch !== "" && next7.hasFull7) {
+          const isY = !next7.sumsSet.has(parseInt(ch, 10));
           row.push({ v: parseInt(ch, 10), s: isY ? yellowStyle : baseCellStyle });
         } else {
           row.push({ v: ch === "" ? "" : parseInt(ch, 10), s: baseCellStyle });
@@ -252,29 +281,20 @@ function exportFullWorkbook() {
   ws2["!cols"] = [{ wch: 24 }, { wch: 20 }, ...Array(35).fill({ wch: 6 })];
   XLSX.utils.book_append_sheet(wb, ws2, "3. Bang 35 Cot (Tong)");
 
-  // Sheet 35 Cột theo Chạm (1 trong 2 số cuối ĐB 7 ngày tiếp theo)
-  const s2bRows = [ ["Tuần", "Tập Chạm 2 Số Cuối 7N Sau", ...Array.from({ length: 35 }, (_, i) => `Cột ${i + 1}`)].map(h => ({ v: h, s: headerStyle })) ];
+  // Sheet 35 Cột theo Chạm (So sánh từng ngày với 7 ngày liên tiếp ngay sau ngày đó)
+  const s2bRows = [ ["Tuần", "Tập Chạm 7N sau T2", ...Array.from({ length: 35 }, (_, i) => `Cột ${i + 1}`)].map(h => ({ v: h, s: headerStyle })) ];
   allWeeks.slice(0, 52).forEach((wk, idx) => {
     const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
-    const nextWeek = idx > 0 ? allWeeks[idx - 1] : null;
-    const nextChamSet = new Set();
-    if (nextWeek) {
-      nextWeek.nums.forEach(n => {
-        if (n && n.length >= 2) {
-          nextChamSet.add(parseInt(n[n.length - 2], 10));
-          nextChamSet.add(parseInt(n[n.length - 1], 10));
-        }
-      });
-    }
-    const hasNext = nextChamSet.size > 0;
-    const chamLabel = hasNext ? `{${Array.from(nextChamSet).sort().join(",")}}` : "Chờ 7 ngày sau";
+    const monNext7 = getNext7ConsecutiveDaysStats(allWeeks, idx, 0);
+    const chamLabel = monNext7.hasFull7 ? `{${Array.from(monNext7.chamSet).sort().join(",")}}` : `Đang có ${monNext7.count}/7N`;
     const row = [{ v: `${tag} (${wk.label})`, s: baseCellStyle }, { v: chamLabel, s: baseCellStyle }];
     for (let d = 0; d < 7; d++) {
       const num = wk.nums[d] || "";
+      const next7 = getNext7ConsecutiveDaysStats(allWeeks, idx, d);
       for (let k = 0; k < 5; k++) {
         const ch = num[k] !== undefined ? num[k] : "";
-        if (ch !== "" && hasNext) {
-          const isY = !nextChamSet.has(parseInt(ch, 10));
+        if (ch !== "" && next7.hasFull7) {
+          const isY = !next7.chamSet.has(parseInt(ch, 10));
           row.push({ v: parseInt(ch, 10), s: isY ? yellowStyle : baseCellStyle });
         } else {
           row.push({ v: ch === "" ? "" : parseInt(ch, 10), s: baseCellStyle });

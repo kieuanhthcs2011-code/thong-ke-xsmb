@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trang 2: Bảng 35 Cột (Tô Vàng) - Thongke.web.app</title>
+  <title>Trang 3: Bảng 35 Cột (Tổng 7 Ngày Liên Tiếp Sau) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
@@ -28,8 +28,8 @@
   <div class="container">
     <div class="toolbar">
       <div class="legend">
-        <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Trùng Tổng 2 số cuối của 7 ngày liên tiếp sau đó</span>
-        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng:</b> Không trùng tập tổng 7 ngày sau</span>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Chữ số <b>không về Tổng</b> trong <b>7 ngày liên tiếp ngay sau ngày đó</b></span>
+        <span><i class="swatch" style="background:#fff"></i><b>Trắng (Không tô):</b> Trùng Tổng 2 số cuối của 7 ngày liên tiếp sau đó (rê chuột vào từng ô để xem chi tiết 7 ngày sau)</span>
       </div>
       <div class="controls">
         <label>Hiển thị:
@@ -58,7 +58,7 @@
       const weeks = allWeeks.slice(0, limit);
       const daysName = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
 
-      let h = `<thead><tr><th rowspan="2">Tuần (Ngày T2 → CN)</th><th rowspan="2">Tập Tổng 7 ngày sau</th>`;
+      let h = `<thead><tr><th rowspan="2">Tuần (Ngày T2 → CN)</th><th rowspan="2">Tập Tổng 7N sau T2</th>`;
       daysName.forEach((d, i) => { h += `<th colspan="5">${d} (Cột ${i*5+1}-${i*5+5})</th>`; });
       h += `</tr><tr>`;
       for (let c = 1; c <= 35; c++) h += `<th>${c}</th>`;
@@ -66,22 +66,28 @@
 
       weeks.forEach((wk, idx) => {
         const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
-        const nextWeek = idx > 0 ? allWeeks[idx - 1] : null;
-        const nextSumsSet = new Set();
-        if (nextWeek) nextWeek.nums.forEach(num => { const s = sumLast2(num); if (s !== null) nextSumsSet.add(s); });
-        const hasNext = nextSumsSet.size > 0;
-        const sumsLabel = hasNext ? `{${Array.from(nextSumsSet).sort().join(",")}}` : "Chờ 7 ngày sau";
+        const monNext7 = getNext7ConsecutiveDaysStats(allWeeks, idx, 0);
+        const sumsLabel = monNext7.hasFull7
+          ? `{${Array.from(monNext7.sumsSet).sort().join(",")}}`
+          : `Đang có ${monNext7.count}/7N`;
 
         h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td><td><b>${sumsLabel}</b></td>`;
         for (let d = 0; d < 7; d++) {
           const num = wk.nums[d] || "";
+          const next7 = getNext7ConsecutiveDaysStats(allWeeks, idx, d);
+          const dayDt = new Date(wk.mDt);
+          dayDt.setDate(wk.mDt.getDate() + d);
+          const tip = next7.count > 0
+            ? `${daysName[d]} ${formatShortDate(dayDt)} (${num || '—'}) → 7 ngày sau [${next7.daysDetail.join(', ')}] | Tập tổng: {${Array.from(next7.sumsSet).sort().join(',')}}`
+            : `${daysName[d]} ${formatShortDate(dayDt)}: Chờ kết quả 7 ngày tiếp theo`;
+
           for (let k = 0; k < 5; k++) {
             const ch = num[k] !== undefined ? num[k] : "";
-            if (ch !== "" && hasNext) {
-              const isY = !nextSumsSet.has(parseInt(ch, 10));
-              h += `<td class="${isY ? 'bg-yellow' : ''}">${ch}</td>`;
+            if (ch !== "" && next7.hasFull7) {
+              const isY = !next7.sumsSet.has(parseInt(ch, 10));
+              h += `<td class="${isY ? 'bg-yellow' : ''}" title="${tip}">${ch}</td>`;
             } else {
-              h += `<td>${ch}</td>`;
+              h += `<td title="${tip}">${ch}</td>`;
             }
           }
         }
