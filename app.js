@@ -91,7 +91,15 @@ function _weekItems(raw, baseMon) {
 }
 
 /* Trả về danh sách tuần (mới -> cũ), mỗi tuần {monday, mDt, label, nums[7]} */
+let _weeksMemo = { raw: null, daily: null, out: null };
 function getNormalizedWeeks(rawWeeks) {
+  const dailyRef = (typeof globalData !== "undefined" && globalData) ? globalData.daily_prizes : null;
+  if (_weeksMemo.out && _weeksMemo.raw === rawWeeks && _weeksMemo.daily === dailyRef) return _weeksMemo.out;
+  const out = _getNormalizedWeeksImpl(rawWeeks);
+  _weeksMemo = { raw: rawWeeks, daily: dailyRef, out };
+  return out;
+}
+function _getNormalizedWeeksImpl(rawWeeks) {
   const daily = (typeof globalData !== "undefined" && globalData) ? normalizeDailyPrizes(globalData.daily_prizes) : [];
   const dayKey = dt => formatVNDate(dt);
   let baseMon = new Date(2026, 10, 23);
@@ -436,7 +444,12 @@ function renderDanNumsPreview(nums, maxInline = 10) {
   </div>`;
 }
 
+let _danMonitorMemo = null;
 function getAllDanForMonitor() {
+  if (!_danMonitorMemo) _danMonitorMemo = _buildAllDanForMonitor();
+  return _danMonitorMemo.map(d => ({ ...d }));
+}
+function _buildAllDanForMonitor() {
   const sig = n => Array.from(new Set(n)).sort().join(",");
   const seen = new Set(), out = [];
   const add = (code, group, name, nums, ref) => {
@@ -492,11 +505,31 @@ function getAllDanForMonitor() {
   return out;
 }
 
-function exportFullWorkbook() {
-  if (!globalData || typeof XLSX === "undefined") {
-    alert("Đang tải dữ liệu hoặc thư viện Excel, vui lòng đợi 2 giây!");
-    return;
-  }
+
+/* Thư viện Excel chỉ tải khi bấm "Xuất Excel" (trước đây chặn hiển thị mọi trang vì nằm trong <head>) */
+let _xlsxPromise = null;
+function ensureXLSX() {
+  if (typeof XLSX !== "undefined") return Promise.resolve();
+  if (_xlsxPromise) return _xlsxPromise;
+  const urls = [
+    "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js",
+    "https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"
+  ];
+  _xlsxPromise = new Promise((resolve, reject) => {
+    let i = 0;
+    const next = () => {
+      if (i >= urls.length) { _xlsxPromise = null; return reject(new Error("Không tải được thư viện Excel")); }
+      const s = document.createElement("script");
+      s.src = urls[i++]; s.onload = () => resolve(); s.onerror = () => { s.remove(); next(); };
+      document.head.appendChild(s);
+    };
+    next();
+  });
+  return _xlsxPromise;
+}
+async function exportFullWorkbook() {
+  if (!globalData) { alert("Đang tải dữ liệu, vui lòng đợi 2 giây!"); return; }
+  try { await ensureXLSX(); } catch (e) { alert("Không tải được thư viện Excel (kiểm tra mạng rồi thử lại)."); return; }
   const wb = XLSX.utils.book_new();
   const borderStyle = { top: { style: "thin", color: { rgb: "BFBFBF" } }, bottom: { style: "thin", color: { rgb: "BFBFBF" } }, left: { style: "thin", color: { rgb: "BFBFBF" } }, right: { style: "thin", color: { rgb: "BFBFBF" } } };
   const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "1E569B" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderStyle };
@@ -620,7 +653,7 @@ function exportFullWorkbook() {
 
 async function loadSharedData(onReadyCallback) {
   try {
-    const res = await fetch('data.json?t=' + Date.now());
+    const res = await fetch('data.json', { cache: 'no-cache' });
     globalData = await res.json();
     globalData.daily_prizes = normalizeDailyPrizes(globalData.daily_prizes);
     const statusEl = document.getElementById('status-text');

@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trang 5: Sheet Chạm & Cầu Pascal (82 Cột) - Thongke.web.app</title>
+  <title>Trang 7: Sheet Chạm & Cầu Pascal (82 Cột) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
     .group-filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .grp-btn {
@@ -20,9 +19,11 @@
     }
     .grp-btn.active { background: #1e569b; color: #fff; border-color: #1e569b; }
     .th-gdb { background: #1d6f42 !important; }
+    .th-cham-ref { background: #0f766e !important; }
     .th-pascal { background: #7030a0 !important; }
     .th-sum { background: #b85d00 !important; }
     .td-gdb { background: #f2fbf5; font-weight: 700; color: #0f3d0f; }
+    .td-cham-ref { background: #f0fdfa; font-weight: 700; color: #115e59; }
     .td-pascal-final { background: #fff200; font-weight: 800; color: #c00000; }
     .td-sum-p { background: #fce4d6; font-weight: 800; color: #833c0c; }
   </style>
@@ -49,7 +50,8 @@
     <div class="toolbar">
       <div class="legend">
         <b>📐 TRANG 7: SHEET 1 (CHẠM & CẦU PASCAL TỰ ĐỘNG)</b>
-        <span style="color:#555;">Tự động điền đủ các cột giải phụ & tự tô <b>vàng (#FFF200)</b> nếu số cầu không về chạm/tổng tuần kế tiếp</span>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Chữ số cầu <b>không trùng 1 trong 2 số cuối GĐB 7 ngày liền sau đó</b></span>
+        <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Trùng ít nhất 1 trong 2 số cuối GĐB 7 ngày liền sau đó (hoặc đang chờ đủ 7 ngày)</span>
       </div>
       <div class="controls">
         <label>Hiển thị:
@@ -111,6 +113,7 @@
       }
       h += `<th colspan="7" class="th-gdb">GĐB Gốc 7 Ngày (Cột AF → AL)</th>`;
       if (showCham) {
+        h += `<th rowspan="2" class="th-cham-ref">Chạm 2 Số Cuối<br><small>(7 Ngày Sau)</small></th>`;
         h += `<th colspan="10">Cầu Chạm & Cộng Dồn Tuần (Cột AM → AV)</th>`;
       }
       if (showPascal) {
@@ -157,31 +160,22 @@
       weeks.forEach((wk, idx) => {
         const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
         const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
-        const nextWk = idx > 0 ? allWeeks[idx - 1] : null;
         const r = computeChamSheetRow(wk, prevWk, auxMap, globalData.daily_prizes);
 
-        // Tập hợp các chữ số chạm & tổng của tuần tiếp theo (nextWk) để đối chiếu cầu có về hay không
-        const nextChamSet = new Set();
-        const nextTongSet = new Set();
-        let hasNextData = false;
-        if (nextWk && Array.isArray(nextWk.nums) && nextWk.nums.filter(x => x && x.length >= 2).length === 7) {
-          nextWk.nums.forEach(num => {
-            if (num && num.length >= 2) {
-              hasNextData = true;
-              const d1 = parseInt(num[num.length - 2], 10);
-              const d2 = parseInt(num[num.length - 1], 10);
-              nextChamSet.add(String(d1));
-              nextChamSet.add(String(d2));
-              nextTongSet.add(String((d1 + d2) % 10));
-            }
-          });
-        }
+        // Lấy tập Chạm (1 trong 2 số cuối GĐB) của đúng 7 ngày liền sau đó
+        const next7 = getNext7ConsecutiveDaysStats(allWeeks, idx, 0);
+        const hasFull7 = next7.hasFull7;
+        const nextChamSet = new Set(Array.from(next7.chamSet).map(String));
+        const chamRefLabel = hasFull7
+          ? `{${Array.from(next7.chamSet).sort().join(",")}}`
+          : `Đang ${next7.count}/7N`;
 
         const renderBridgeCell = (val, isBold = false) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           if (s === "") return `<td></td>`;
-          if (!hasNextData) return `<td>${isBold ? `<b>${s}</b>` : s}</td>`;
-          const hit = nextChamSet.has(s) || nextTongSet.has(s);
+          if (!hasFull7) return `<td>${isBold ? `<b>${s}</b>` : s}</td>`;
+          // Chỉ kiểm tra trùng 1 trong 2 số cuối GĐB 7 ngày liền sau đó; không trùng -> tô màu vàng
+          const hit = nextChamSet.has(s);
           const cls = hit ? "" : "bg-yellow";
           return `<td class="${cls}">${isBold ? `<b>${s}</b>` : s}</td>`;
         };
@@ -205,6 +199,7 @@
           .map(v => `<td class="td-gdb">${v || "—"}</td>`).join("");
 
         if (showCham) {
+          h += `<td class="td-cham-ref">${chamRefLabel}</td>`;
           const valsCham = [r.AM, r.AN, r.AO, r.AP, r.AQ, r.AR, r.AS, r.AT, r.AU, r.AV];
           h += valsCham.map(v => renderBridgeCell(v, true)).join("");
         }

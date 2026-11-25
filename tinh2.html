@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trang 6: Cầu Chạm / Tổng / Bộ (Sheet Tính) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
+    .th-tong-grp { background: #1e569b !important; }
+    .th-cham-grp { background: #0f766e !important; }
     .th-gdb { background: #1d6f42 !important; }
-    .th-cham { background: #0f766e !important; }
-    .th-gold { background: #b85d00 !important; }
     .th-bo { background: #7030a0 !important; }
     .td-gdb { background: #f2fbf5; font-weight: 700; color: #0f3d0f; }
-    .td-cham { background: #f0fdfa; font-weight: 700; color: #115e59; }
+    .td-ref-tong { background: #eff6ff; font-weight: 700; color: #1e3a8a; }
+    .td-ref-cham { background: #f0fdfa; font-weight: 700; color: #115e59; }
     .td-bo { background: #f3e8ff; font-weight: 700; color: #4c1d95; }
   </style>
 </head>
@@ -37,9 +37,9 @@
   <div class="container">
     <div class="toolbar">
       <div class="legend">
-        <b>🧮 TRANG 6: BẢNG CẦU CHẠM – TỔNG – BỘ THEO TUẦN (SHEET 2 "TÍNH" CỘT AA → BA)</b>
-        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Cột Tổng không trùng hàng đơn vị tổng 2 số cuối tuần sau, hoặc cột Chạm không trùng 1 trong 2 số cuối tuần sau</span>
-        <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Có trùng trong tuần sau hoặc đang chờ đủ 7 ngày tuần sau</span>
+        <b>🧮 TRANG 6: PHÂN CỘT TỔNG MỘT BÊN – CHẠM MỘT BÊN (ĐỐI CHIẾU 7 NGÀY LIỀN SAU ĐÓ)</b>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Cột Tổng không trùng hàng đơn vị tổng 2 số cuối 7 ngày sau, hoặc cột Chạm không trùng 1 trong 2 số cuối 7 ngày sau</span>
+        <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Trùng với 7 ngày sau hoặc đang chờ đủ 7 ngày sau</span>
       </div>
       <div class="controls">
         <label>Hiển thị:
@@ -75,20 +75,17 @@
       let h = `<thead>
         <tr>
           <th rowspan="2">Tuần (T2 → CN)</th>
-          <th colspan="6">Cầu Tổng & Chạm Đầu Tuần (AA → AF)</th>
-          <th colspan="7" class="th-gdb">GĐB Gốc 7 Ngày (Cột AG → AM)</th>
-          <th rowspan="2" class="th-cham">Chạm 2 Số Cuối<br><small>(Tuần Sau)</small></th>
-          <th colspan="6">Cầu G1-CN & Thứ 3 (AN → AS)</th>
-          <th colspan="5" class="th-gold">Cầu Thứ 5 & Thứ 6 (AT → BA)</th>
+          <th colspan="7" class="th-gdb">GĐB Gốc 7 Ngày (AG → AM)</th>
+          <th rowspan="2" class="th-tong-grp">Tổng 2 Số Cuối<br><small>(7 Ngày Sau)</small></th>
+          <th colspan="10" class="th-tong-grp">NHÓM CỘT TỔNG (So Sánh Hàng Đơn Vị Tổng 2 Số Cuối 7N Sau)</th>
+          <th rowspan="2" class="th-cham-grp">Chạm 2 Số Cuối<br><small>(7 Ngày Sau)</small></th>
+          <th colspan="4" class="th-cham-grp">NHÓM CỘT CHẠM (So Sánh 1 Trong 2 Số Cuối 7N Sau)</th>
+          <th rowspan="2">3N T5<br><small>(AB)</small></th>
+          <th rowspan="2">2s C&D T5<br><small>(AS)</small></th>
+          <th rowspan="2" class="th-bo">Bộ (de)T5<br><small>(AU)</small></th>
           <th rowspan="2" class="th-bo">Dàn 8 Số Của Bộ (de)T5</th>
         </tr>
         <tr>
-          <th>tong(D+E)T2<br><small>(AA)</small></th>
-          <th>Tổng(3N)T5<br><small>(AB)</small></th>
-          <th>tổng(C+D)T5<br><small>(AC)</small></th>
-          <th>tong(d+e)T5<br><small>(AD)</small></th>
-          <th>Tổng(eT7+aCN)<br><small>(AE)</small></th>
-          <th>cham eT3+aT4<br><small>(AF)</small></th>
           <th class="th-gdb">T2 (AG)</th>
           <th class="th-gdb">T3 (AH)</th>
           <th class="th-gdb">T4 (AI)</th>
@@ -96,17 +93,20 @@
           <th class="th-gdb">T6 (AK)</th>
           <th class="th-gdb">T7 (AL)</th>
           <th class="th-gdb">CN (AM)</th>
-          <th>chạm(a+b G1CN)<br><small>(AN)</small></th>
-          <th>tong(a+b G1CN)<br><small>(AO)</small></th>
-          <th>tổng C(T3)<br><small>(AP)</small></th>
-          <th>tong(b+c)T3<br><small>(AQ)</small></th>
-          <th>tong(c+d)T3<br><small>(AR)</small></th>
-          <th>2s (C&D)T5<br><small>(AS)</small></th>
-          <th class="th-gold">tong(C&D)T6<br><small>(AT)</small></th>
-          <th class="th-gold">bộ (de)T5<br><small>(AU)</small></th>
-          <th class="th-gold">tong c T5<br><small>(AY)</small></th>
-          <th class="th-gold">Cham C T5<br><small>(AZ)</small></th>
-          <th class="th-gold">chạm(a+b)T5<br><small>(BA)</small></th>
+          <th class="th-tong-grp">tong(D+E)T2<br><small>(AA)</small></th>
+          <th class="th-tong-grp">tổng(C+D)T5<br><small>(AC)</small></th>
+          <th class="th-tong-grp">tong(d+e)T5<br><small>(AD)</small></th>
+          <th class="th-tong-grp">Tổng(eT7+aCN)<br><small>(AE)</small></th>
+          <th class="th-tong-grp">tong(a+b G1CN)<br><small>(AO)</small></th>
+          <th class="th-tong-grp">tổng C(T3)<br><small>(AP)</small></th>
+          <th class="th-tong-grp">tong(b+c)T3<br><small>(AQ)</small></th>
+          <th class="th-tong-grp">tong(c+d)T3<br><small>(AR)</small></th>
+          <th class="th-tong-grp">tong(C&D)T6<br><small>(AT)</small></th>
+          <th class="th-tong-grp">tong c T5<br><small>(AY)</small></th>
+          <th class="th-cham-grp">cham eT3+aT4<br><small>(AF)</small></th>
+          <th class="th-cham-grp">chạm(a+b G1CN)<br><small>(AN)</small></th>
+          <th class="th-cham-grp">Cham C T5<br><small>(AZ)</small></th>
+          <th class="th-cham-grp">chạm(a+b)T5<br><small>(BA)</small></th>
         </tr>
       </thead><tbody>`;
 
@@ -114,47 +114,35 @@
         const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
         const r = computeTinhCauRow(wk, g1cnMap, globalData.daily_prizes);
 
-        // Lấy tập Tổng (hàng đơn vị tổng 2 số cuối) & tập Chạm (1 trong 2 số cuối) của tuần kế tiếp (khi đủ 7/7 ngày)
-        const nextWk = idx > 0 ? allWeeks[idx - 1] : null;
-        const nextSumSet = new Set();
-        const nextChamSet = new Set();
-        let hasFullNext7 = false;
-        let chamColLabel = "Chờ 7N sau";
+        // Lấy đúng 7 ngày liền sau Thứ 2 của tuần này (từ T3 tuần này -> T2 tuần sau)
+        const next7 = getNext7ConsecutiveDaysStats(allWeeks, idx, 0);
+        const hasFull7 = next7.hasFull7;
+        const nextSumSet = next7.sumsSet;
+        const nextChamSet = next7.chamSet;
 
-        if (nextWk && Array.isArray(nextWk.nums)) {
-          const validNums = nextWk.nums.filter(x => x && /^\d{5}$/.test(x));
-          if (validNums.length === 7) {
-            hasFullNext7 = true;
-            validNums.forEach(num => {
-              const d1 = parseInt(num[3], 10);
-              const d2 = parseInt(num[4], 10);
-              nextChamSet.add(d1);
-              nextChamSet.add(d2);
-              nextSumSet.add((d1 + d2) % 10);
-            });
-            chamColLabel = `{${Array.from(nextChamSet).sort().join(",")}}`;
-          } else if (validNums.length > 0) {
-            chamColLabel = `Đang ${validNums.length}/7N`;
-          }
-        }
+        const sumRefLabel = hasFull7
+          ? `{${Array.from(nextSumSet).sort().join(",")}}`
+          : `Đang ${next7.count}/7N`;
+        const chamRefLabel = hasFull7
+          ? `{${Array.from(nextChamSet).sort().join(",")}}`
+          : `Đang ${next7.count}/7N`;
 
-        const cellClass = (val, mode) => {
-          if (!hasFullNext7 || val === "" || val === undefined || val === null) return "";
+        const sumCellClass = (val) => {
+          if (!hasFull7 || val === "" || val === undefined || val === null) return "";
           const dig = parseInt(String(val).trim(), 10);
           if (Number.isNaN(dig) || dig < 0 || dig > 9) return "";
-          if (mode === "tong") return !nextSumSet.has(dig) ? "bg-yellow" : "";
-          if (mode === "cham") return !nextChamSet.has(dig) ? "bg-yellow" : "";
-          return "";
+          return !nextSumSet.has(dig) ? "bg-yellow" : "";
+        };
+
+        const chamCellClass = (val) => {
+          if (!hasFull7 || val === "" || val === undefined || val === null) return "";
+          const dig = parseInt(String(val).trim(), 10);
+          if (Number.isNaN(dig) || dig < 0 || dig > 9) return "";
+          return !nextChamSet.has(dig) ? "bg-yellow" : "";
         };
 
         h += `<tr>
           <td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>
-          <td class="${cellClass(r.AA, 'tong')}"><b>${r.AA}</b></td>
-          <td>${r.AB}</td>
-          <td class="${cellClass(r.AC, 'tong')}"><b>${r.AC}</b></td>
-          <td class="${cellClass(r.AD, 'tong')}"><b>${r.AD}</b></td>
-          <td class="${cellClass(r.AE, 'tong')}"><b>${r.AE}</b></td>
-          <td class="${cellClass(r.AF, 'cham')}"><b>${r.AF}</b></td>
           <td class="td-gdb">${r.AG || "—"}</td>
           <td class="td-gdb">${r.AH || "—"}</td>
           <td class="td-gdb">${r.AI || "—"}</td>
@@ -162,18 +150,25 @@
           <td class="td-gdb">${r.AK || "—"}</td>
           <td class="td-gdb">${r.AL || "—"}</td>
           <td class="td-gdb">${r.AM || "—"}</td>
-          <td class="td-cham">${chamColLabel}</td>
-          <td class="${cellClass(r.AN, 'cham')}"><b>${r.AN}</b></td>
-          <td class="${cellClass(r.AO, 'tong')}"><b>${r.AO}</b></td>
-          <td class="${cellClass(r.AP, 'tong')}"><b>${r.AP}</b></td>
-          <td class="${cellClass(r.AQ, 'tong')}"><b>${r.AQ}</b></td>
-          <td class="${cellClass(r.AR, 'tong')}"><b>${r.AR}</b></td>
+          <td class="td-ref-tong">${sumRefLabel}</td>
+          <td class="${sumCellClass(r.AA)}"><b>${r.AA}</b></td>
+          <td class="${sumCellClass(r.AC)}"><b>${r.AC}</b></td>
+          <td class="${sumCellClass(r.AD)}"><b>${r.AD}</b></td>
+          <td class="${sumCellClass(r.AE)}"><b>${r.AE}</b></td>
+          <td class="${sumCellClass(r.AO)}"><b>${r.AO}</b></td>
+          <td class="${sumCellClass(r.AP)}"><b>${r.AP}</b></td>
+          <td class="${sumCellClass(r.AQ)}"><b>${r.AQ}</b></td>
+          <td class="${sumCellClass(r.AR)}"><b>${r.AR}</b></td>
+          <td class="${sumCellClass(r.AT)}"><b>${r.AT}</b></td>
+          <td class="${sumCellClass(r.AY)}"><b>${r.AY}</b></td>
+          <td class="td-ref-cham">${chamRefLabel}</td>
+          <td class="${chamCellClass(r.AF)}"><b>${r.AF}</b></td>
+          <td class="${chamCellClass(r.AN)}"><b>${r.AN}</b></td>
+          <td class="${chamCellClass(r.AZ)}"><b>${r.AZ}</b></td>
+          <td class="${chamCellClass(r.BA)}"><b>${r.BA}</b></td>
+          <td>${r.AB}</td>
           <td><b>${r.AS}</b></td>
-          <td class="${cellClass(r.AT, 'tong')}"><b>${r.AT}</b></td>
           <td class="td-bo">${r.AU}</td>
-          <td class="${cellClass(r.AY, 'tong')}"><b>${r.AY}</b></td>
-          <td class="${cellClass(r.AZ, 'cham')}"><b>${r.AZ}</b></td>
-          <td class="${cellClass(r.BA, 'cham')}"><b>${r.BA}</b></td>
           <td style="text-align:left; font-size:11px; color:#4c1d95;">${r.AU_bo}</td>
         </tr>`;
       });

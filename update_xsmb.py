@@ -407,7 +407,7 @@ def main():
     aux = data.setdefault("daily_aux", {})
     for it in rss_items:
         aux[it["date"]] = {"g1": it["parsed"]["g1"], "g7": it["parsed"]["g7"]}
-    backfill_daily_aux(data, weeks, budget=int(os.environ.get("XSMB_AUX_BUDGET", "60")))
+    backfill_daily_aux(data, weeks, budget=int(os.environ.get("XSMB_AUX_BUDGET", "300")))
     derive_aux_maps(data, weeks)
 
     if rss_items:
