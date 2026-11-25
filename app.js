@@ -297,6 +297,95 @@ function saveCustomDans(list) {
 }
 
 
+
+function computeNextDayKepDDEE(histGDB) {
+  let curStreak = 0;
+  let maxPureGap = 0;
+  let maxInclHit = 0;
+  let maxSpan = "Chưa đủ 2 lần về";
+  let streakStartDate = histGDB.length ? histGDB[0].date : "";
+  let seenFirstHit = false;
+  let lastHitDate = "Chưa thấy";
+  let lastHitDe = "--";
+  let lastHitPrevInfo = "";
+  const rows = [];
+
+  for (let i = 0; i < histGDB.length; i++) {
+    const cur = histGDB[i];
+    if (!cur || !cur.db || !/^\d{5}$/.test(cur.db)) continue;
+    const dChar = cur.db[3];
+    const eChar = cur.db[4];
+    const dd = dChar + dChar;
+    const ee = eChar + eChar;
+    const targets = dd === ee ? [dd] : [dd, ee];
+
+    const next = i + 1 < histGDB.length ? histGDB[i + 1] : null;
+    if (!next || !next.de || !/^\d{2}$/.test(next.de)) {
+      rows.push({
+        date: cur.date,
+        db: cur.db,
+        de: cur.de,
+        targets,
+        pending: true,
+        nextDate: "",
+        nextDb: "",
+        nextDe: "",
+        hit: false,
+        streakAfter: curStreak
+      });
+      continue;
+    }
+
+    const hit = targets.includes(next.de);
+    if (hit) {
+      if (seenFirstHit) {
+        if (curStreak > maxPureGap) maxPureGap = curStreak;
+        const incl = curStreak + 1;
+        if (incl >= maxInclHit) {
+          maxInclHit = incl;
+          maxSpan = `${streakStartDate} → ${next.date} (về ${next.de})`;
+        }
+      }
+      seenFirstHit = true;
+      curStreak = 0;
+      streakStartDate = next.date;
+      lastHitDate = next.date;
+      lastHitDe = next.de;
+      lastHitPrevInfo = `từ ĐB ${cur.db} (${cur.date})`;
+    } else {
+      curStreak++;
+    }
+
+    rows.push({
+      date: cur.date,
+      db: cur.db,
+      de: cur.de,
+      targets,
+      pending: false,
+      nextDate: next.date,
+      nextDb: next.db,
+      nextDe: next.de,
+      hit,
+      streakAfter: curStreak
+    });
+  }
+
+  const latestRow = rows.length ? rows[rows.length - 1] : null;
+  return {
+    daysSince: curStreak,
+    maxPureGap,
+    maxInclHit,
+    maxSpan,
+    lastHitDate,
+    lastHitDe,
+    lastHitPrevInfo,
+    latestTargets: latestRow ? latestRow.targets : [],
+    latestDb: latestRow ? latestRow.db : "",
+    latestDate: latestRow ? latestRow.date : "",
+    rows
+  };
+}
+
 function computeMketquaCycle(histGDB, nums) {
   const targetSet = new Set(nums);
   let curMiss = 0;
@@ -784,17 +873,20 @@ function exportFullWorkbook() {
 }
 
 async function loadSharedData(onReadyCallback) {
+  const statusEl = document.getElementById('status-text');
   try {
-    const res = await fetch('data.json?t=' + Date.now());
+    let res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) res = await fetch('data.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     globalData = await res.json();
-    globalData.daily_prizes = normalizeDailyPrizes(globalData.daily_prizes);
-    const statusEl = document.getElementById('status-text');
+    if (Array.isArray(globalData.daily_prizes)) {
+      globalData.daily_prizes = normalizeDailyPrizes(globalData.daily_prizes);
+    }
     if (statusEl) statusEl.innerText = "Cập nhật tự động: " + (globalData.last_updated || "—");
-    if (onReadyCallback) onReadyCallback(globalData);
+    if (typeof onReadyCallback === "function") onReadyCallback(globalData);
   } catch (e) {
-    console.error(e);
-    const statusEl = document.getElementById('status-text');
-    if (statusEl) statusEl.innerText = "Lỗi tải data.json";
+    console.error("loadSharedData error:", e);
+    if (statusEl) statusEl.innerText = "Lỗi tải data.json: " + e.message;
   }
 }
 

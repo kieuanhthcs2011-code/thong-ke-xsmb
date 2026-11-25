@@ -181,6 +181,18 @@
       </div>
     </div>
 
+    <!-- BẢNG 5B: CẦU KÉP HÔM SAU (ĐB HÔM NAY abcde → HÔM SAU ĐỀ VỀ dd HOẶC ee, KHÔNG VỀ ĐẾM ĐẾN HIỆN TẠI) -->
+    <div class="card-panel" id="sec-cau-kep-ddee" style="margin-top:14px;">
+      <div class="card-header">
+        <span>5b. ĐẾM CẦU KÉP HÔM SAU: ĐB HÔM NAY (abcde) → HÔM SAU ĐỀ VỀ (dd HOẶC ee)</span>
+        <span style="font-size:11px; font-weight:normal;" id="dn-kep-ddee-badge">Đang tính...</span>
+      </div>
+      <div id="dn-kep-ddee-summary" style="padding:8px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:12px;"></div>
+      <div style="overflow-x:auto; max-height:55vh;">
+        <table class="stat-table" id="tbl-kep-ddee"></table>
+      </div>
+    </div>
+
     <!-- BẢNG 6: THỐNG KÊ CÁC DÀN BỔ SUNG (ĐÃ TỰ ĐỘNG LOẠI BỎ HOÀN TOÀN DÀN TRÙNG) -->
     <div class="card-panel" style="margin-top:14px;">
       <div class="card-header">
@@ -588,6 +600,57 @@
       if (!globalData) return;
       const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
       const histGDB = getAllHistoricalGDB(allWeeks);
+
+      // 5b. Bảng đếm cầu kép hôm sau (ĐB abcde -> hôm sau đề về dd hoặc ee)
+      const kepDD = computeNextDayKepDDEE(histGDB);
+      const badgeEl = document.getElementById("dn-kep-ddee-badge");
+      if (badgeEl) {
+        badgeEl.textContent = `Chưa về: ${kepDD.daysSince} ngày | Gan nhất: ${kepDD.maxInclHit} ngày`;
+      }
+      const sumEl = document.getElementById("dn-kep-ddee-summary");
+      if (sumEl) {
+        sumEl.innerHTML = `<b>Quy tắc:</b> GĐB hôm nay <b>abcde</b> → hôm sau Đề về <b>dd</b> hoặc <b>ee</b> (trúng tô xanh và reset về 0; không về đếm cộng dồn 1, 2, 3... đến hiện tại). &nbsp;|&nbsp; <b>Chưa về đến hiện tại:</b> <span style="color:#b91c1c; font-weight:900; font-size:14px;">${kepDD.daysSince} ngày</span> &nbsp;|&nbsp; <b>Số ngày gan nhất:</b> <b>${kepDD.maxInclHit} ngày</b> (${kepDD.maxSpan}) &nbsp;|&nbsp; <b>Về gần nhất:</b> ${kepDD.lastHitDate} (<b>${kepDD.lastHitDe}</b>, ${kepDD.lastHitPrevInfo}) &nbsp;|&nbsp; <b>Cặp kép hôm nay (${kepDD.latestDate} - ĐB ${kepDD.latestDb}):</b> <span style="color:#b80000; font-weight:900;">${kepDD.latestTargets.join(", ")}</span>`;
+      }
+      const dispRows = kepDD.rows.slice(-60).reverse();
+      let hKep = `<thead><tr>
+        <th>Ngày gốc</th>
+        <th>GĐB (abcde)</th>
+        <th>Cặp kép hôm sau (dd / ee)</th>
+        <th>Ngày hôm sau</th>
+        <th>GĐB hôm sau (Đề)</th>
+        <th>Đếm số ngày chưa về</th>
+      </tr></thead><tbody>`;
+      dispRows.forEach(r => {
+        if (r.pending) {
+          hKep += `<tr class="bg-yellow">
+            <td><b>${r.date}</b></td>
+            <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
+            <td><b>${r.targets.join(", ")}</b></td>
+            <td colspan="2"><i>Đang chờ kết quả ngày kế tiếp</i></td>
+            <td><b>Đang đếm: ${r.streakAfter} ngày</b></td>
+          </tr>`;
+        } else if (r.hit) {
+          hKep += `<tr class="bg-green">
+            <td><b>${r.date}</b></td>
+            <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
+            <td><b>${r.targets.join(", ")}</b></td>
+            <td>${r.nextDate}</td>
+            <td>${r.nextDb.slice(0,3)}<span class="de-gray-pill">${r.nextDe}</span></td>
+            <td><b>✓ Về (${r.nextDe}) — Reset 0 ngày</b></td>
+          </tr>`;
+        } else {
+          const warnCls = r.streakAfter >= 15 ? 'style="background:#fef08a; color:#991b1b; font-weight:800;"' : '';
+          hKep += `<tr>
+            <td><b>${r.date}</b></td>
+            <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
+            <td><b>${r.targets.join(", ")}</b></td>
+            <td>${r.nextDate}</td>
+            <td>${r.nextDb.slice(0,3)}<span class="de-gray-pill">${r.nextDe}</span></td>
+            <td ${warnCls}>Chưa về — <b>${r.streakAfter} ngày</b></td>
+          </tr>`;
+        }
+      });
+      document.getElementById("tbl-kep-ddee").innerHTML = hKep + `</tbody>`;
 
       // 6. Render bảng các dàn bổ sung (đã loại bỏ hoàn toàn dàn trùng)
       const f3ListAll = getImageF3F9A1Configs().map(cfg => {

@@ -109,6 +109,14 @@
       <div id="home-boards-stack" style="padding:12px; display:flex; flex-direction:column; gap:16px; background:#f8fafc;"></div>
     </div>
 
+    <div class="quick-stat-box" id="kep-ddee-home-box" style="margin-bottom:14px;">
+      <div class="qs-title" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;">
+        <span>🎯 CẦU KÉP HÔM SAU: ĐB HÔM NAY (abcde) → HÔM SAU ĐỀ VỀ (dd hoặc ee)</span>
+        <a href="dannuoi.html#sec-cau-kep-ddee" style="color:#fff200; font-size:12px; text-decoration:underline;">Xem chi tiết từng ngày trên Trang 2 →</a>
+      </div>
+      <div id="home-kep-ddee-content" style="padding:10px 12px; background:#f8fafc;"></div>
+    </div>
+
     <div class="quick-stat-box">
       <div class="qs-title">THỐNG KÊ NHANH CẦU GHÉP (ĐB → G3-6) & DÀN NUÔI ĐANG CHẠM NGƯỠNG</div>
       <div class="qs-sub">Số ngày chưa về của từng giải ghép 2 số (ĐB → G3-6):</div>
@@ -375,6 +383,65 @@
       renderHomeBoards();
 
       const histAll = getAllHistoricalGDB(getNormalizedWeeks(data.weeks_gdb));
+      // Cầu kép hôm sau: ĐB abcde -> hôm sau đề về dd hoặc ee
+      const kepDD = computeNextDayKepDDEE(histAll);
+      const kepBox = document.getElementById('home-kep-ddee-content');
+      if (kepBox) {
+        const isOver = kepDD.maxInclHit > 0 && kepDD.daysSince >= kepDD.maxInclHit;
+        const recent30 = kepDD.rows.filter(r => !r.pending).slice(-30).reverse();
+        const miniRowsHtml = recent30.map(r => {
+          const rowCls = r.hit ? 'bg-green' : '';
+          const stTxt = r.hit
+            ? `<b>✓ Trúng ${r.nextDe}</b> (reset 0 ngày)`
+            : `Chưa về — đếm <b>${r.streakAfter} ngày</b>`;
+          return `<tr class="${rowCls}">
+            <td><b>${r.date}</b></td>
+            <td>${r.db.slice(0,3)}<span class="de-gray-pill">${r.db.slice(3)}</span></td>
+            <td><b>${r.targets.join(", ")}</b></td>
+            <td>${r.nextDate} — ${r.nextDb.slice(0,3)}<span class="de-gray-pill">${r.nextDe}</span></td>
+            <td>${stTxt}</td>
+          </tr>`;
+        }).join("");
+
+        kepBox.innerHTML = `
+          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+              <div style="background:${isOver ? '#fee2e2' : '#fef9c3'}; border:1px solid ${isOver ? '#ef4444' : '#f59e0b'}; border-radius:6px; padding:6px 12px;">
+                <div style="font-size:11px; color:#78350f; font-weight:700;">SỐ NGÀY CHƯA VỀ ĐẾN HIỆN TẠI</div>
+                <div style="font-size:18px; font-weight:900; color:${isOver ? '#b91c1c' : '#92400e'};">${kepDD.daysSince} ngày</div>
+              </div>
+              <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:6px 12px;">
+                <div style="font-size:11px; color:#1e40af; font-weight:700;">SỐ NGÀY GAN NHẤT (MAX)</div>
+                <div style="font-size:18px; font-weight:900; color:#1d4ed8;">${kepDD.maxInclHit} ngày</div>
+                <div style="font-size:11px; color:#334155;">${kepDD.maxSpan}</div>
+              </div>
+              <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:6px 12px;">
+                <div style="font-size:11px; color:#166534; font-weight:700;">VỀ GẦN NHẤT</div>
+                <div style="font-size:14px; font-weight:800; color:#15803d;">${kepDD.lastHitDate} (Đề <b>${kepDD.lastHitDe}</b>)</div>
+                <div style="font-size:11px; color:#166534;">${kepDD.lastHitPrevInfo}</div>
+              </div>
+              <div style="background:#fff; border:1px solid #9cbce2; border-radius:6px; padding:6px 12px;">
+                <div style="font-size:11px; color:#14365d; font-weight:700;">CẶP KÉP CHỜ HÔM SAU (từ ĐB ${kepDD.latestDb} ngày ${kepDD.latestDate})</div>
+                <div style="font-size:16px; font-weight:900; color:#b80000;">${kepDD.latestTargets.join(" , ")}</div>
+              </div>
+            </div>
+            <button type="button" class="action-btn" onclick="const el=document.getElementById('home-kep-ddee-tbl-wrap'); el.style.display=el.style.display==='none'?'block':'none'; this.textContent=el.style.display==='none'?'[Xem bảng đếm 30 ngày ▾]':'[Thu gọn ▴]';">[Xem bảng đếm 30 ngày ▾]</button>
+          </div>
+          <div id="home-kep-ddee-tbl-wrap" style="display:none; overflow-x:auto; max-height:360px; border:1px solid #cbd5e1; border-radius:5px; background:#fff;">
+            <table class="stat-table">
+              <thead><tr>
+                <th>Ngày gốc</th>
+                <th>GĐB (abcde)</th>
+                <th>Cặp kép hôm sau (dd / ee)</th>
+                <th>Kết quả ĐB hôm sau</th>
+                <th>Trạng thái & Số ngày đếm</th>
+              </tr></thead>
+              <tbody>${miniRowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+      }
+
       // Bảng dàn gan lâu (đầu trang) — tính thực tế từ toàn bộ lịch sử
       const savedCustomForHome = getCustomDans().map((c, i) => ({
         code: `CN-${i + 1}`,
