@@ -342,7 +342,7 @@ def main():
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
     before = json.dumps({k: data.get(k) for k in ("weeks_gdb", "daily_prizes", "latest_full_board",
-                                                  "cham_aux_by_mon_gdb", "tinh_g1cn_by_mon_gdb", "daily_aux")},
+                                                  "cham_aux_by_mon_gdb", "tinh_g1cn_by_mon_gdb", "daily_aux", "history_boards")},
                         sort_keys=True, ensure_ascii=False)
 
     daily = normalize_daily(data.get("daily_prizes"))
@@ -350,9 +350,16 @@ def main():
 
     urls = [u.strip() for u in os.environ.get("XSMB_RSS_URLS", "").split(",") if u.strip()] or DEFAULT_RSS
     rss_items = fetch_rss(urls)
+    hist_boards = data.setdefault("history_boards", {})
     for it in rss_items:
         daily.setdefault(it["date"], it["parsed"]["top10"])
         board_by_date[it["date"]] = it
+        p = it["parsed"]
+        hist_boards[it["date"]] = {
+            "date": it["date"], "weekday": it["weekday_name"], "db": p["db"],
+            "g1": p["g1"], "g2": p["g2"], "g3": p["g3"], "g4": p["g4"],
+            "g5": p["g5"], "g6": p["g6"], "g7": p["g7"]
+        }
 
     # bù lịch sử 45 ngày gần nhất (dừng sớm nếu nguồn lỗi liên tiếp)
     if daily:
@@ -362,7 +369,8 @@ def main():
             if len(daily) >= 45 or fails >= 3 or calls >= 45:
                 break
             dt = newest_dt - timedelta(days=off)
-            if fmt(dt) in daily:
+            d_str = fmt(dt)
+            if d_str in daily and d_str in hist_boards:
                 continue
             calls += 1
             try:
@@ -371,10 +379,20 @@ def main():
                 fails += 1
                 continue
             if b:
-                daily[fmt(dt)] = b["top10"]
+                daily[d_str] = b["top10"]
+                if b.get("db"):
+                    wd_name = WEEKDAY_NAMES[dt.weekday()]
+                    hist_boards[d_str] = {
+                        "date": d_str, "weekday": wd_name, "db": b["db"],
+                        "g1": b.get("g1", ""), "g2": b.get("g2", ["",""]), "g3": b.get("g3", ["","","","","",""]),
+                        "g4": b.get("g4", ["","","",""]), "g5": b.get("g5", ["","","","","",""]),
+                        "g6": b.get("g6", ["","",""]), "g7": b.get("g7", ["","","",""])
+                    }
 
     keep = sorted(daily, key=lambda d: parse_vn(d))[-90:]
     daily = {d: daily[d] for d in keep}
+    hb_keep = sorted(hist_boards.keys(), key=lambda d: parse_vn(d))[-60:]
+    data["history_boards"] = {d: hist_boards[d] for d in hb_keep}
 
     weeks, log = clean_weeks(data.get("weeks_gdb"), daily)
     data["weeks_gdb"] = weeks
@@ -400,7 +418,7 @@ def main():
                                      "g5": p["g5"], "g6": p["g6"], "g7": p["g7"]}
 
     after = json.dumps({k: data.get(k) for k in ("weeks_gdb", "daily_prizes", "latest_full_board",
-                                                 "cham_aux_by_mon_gdb", "tinh_g1cn_by_mon_gdb", "daily_aux")},
+                                                 "cham_aux_by_mon_gdb", "tinh_g1cn_by_mon_gdb", "daily_aux", "history_boards")},
                        sort_keys=True, ensure_ascii=False)
     if after != before:
         now_vn = datetime.now(VN_TZ).strftime("%d/%m/%Y %H:%M")
