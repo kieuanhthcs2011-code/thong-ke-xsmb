@@ -28,9 +28,15 @@
       font-size: 14px;
       color: #0f172a;
     }
+    .nuoi-actions-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
     .nuoi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       gap: 10px;
       align-items: end;
     }
@@ -53,14 +59,66 @@
       color: #0f172a;
       background: #fff;
     }
+    .btn-save-nuoi {
+      background: #16a34a;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-save-nuoi:hover {
+      background: #15803d;
+    }
+    .btn-new-nuoi {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-new-nuoi:hover {
+      background: #1d4ed8;
+    }
+    .btn-clear-nuoi {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-clear-nuoi:hover {
+      background: #dc2626;
+    }
+    .btn-row-del {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-row-del:hover {
+      background: #fecaca;
+    }
     .nuoi-summary {
       margin-top: 10px;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-radius: 6px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      font-size: 13px;
-      line-height: 1.55;
+      font-size: 12.5px;
+      line-height: 1.5;
       color: #0f172a;
     }
     .nuoi-badge-hit {
@@ -74,33 +132,57 @@
       font-size: 11px;
       margin-top: 2px;
     }
-    .nuoi-badge-wait {
-      display: inline-block;
-      background: #fef9c3;
-      color: #854d0e;
-      border: 1px solid #fde047;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-      margin-top: 2px;
-    }
     .nuoi-cell-hit {
       background: #dcfce7 !important;
       outline: 2px solid #16a34a;
     }
-    .nuoi-cell-active {
-      background: #fef9c3 !important;
+    .nuoi-table-wrap {
+      margin-top: 10px;
+      overflow-x: auto;
     }
-    .btn-clear-nuoi {
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      padding: 5px 10px;
+    .nuoi-detail-table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 12px;
+      background: #fff;
+    }
+    .nuoi-detail-table th,
+    .nuoi-detail-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .nuoi-detail-table th {
+      background: #1e3a8a;
+      color: #fff;
       font-weight: 700;
-      cursor: pointer;
+    }
+    .nuoi-detail-table td.col-name {
+      text-align: left;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .nuoi-detail-table td.col-nums {
+      text-align: left;
+      max-width: 240px;
+      white-space: normal;
+      word-break: break-word;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .nuoi-detail-table td.col-spent {
+      font-weight: 800;
+      color: #1d4ed8;
+      background: #eff6ff;
+    }
+    .nuoi-detail-table tr.row-draft {
+      background: #fffbeb;
+    }
+    .nuoi-detail-table tr.row-total td {
+      background: #f1f5f9;
+      font-weight: 800;
+      color: #0f172a;
     }
   </style>
 </head>
@@ -154,46 +236,57 @@
       </label>
       <label>2 số cuối: <input type="text" id="filter-de" class="filter-input" maxlength="2" placeholder="VD: 89" style="width:65px" oninput="renderPage()" /></label>
     </div>
-        <div class="nuoi-panel" id="nuoi-tracker-box">
+
+    <div class="nuoi-panel" id="nuoi-tracker-box">
       <div class="nuoi-head">
         <span class="nuoi-title">🎯 BẢNG NUÔI SỐ & TÍNH TIỀN TỰ ĐỘNG THEO TUẦN</span>
-        <button type="button" class="btn-clear-nuoi" onclick="clearNuoiData()">Xóa dữ liệu nuôi</button>
+        <div class="nuoi-actions-top">
+          <button type="button" class="btn-save-nuoi" onclick="saveCurrentDanToList()">💾 Lưu dàn vào bảng</button>
+          <button type="button" class="btn-new-nuoi" onclick="resetNuoiFormForNew()">➕ Thêm dàn mới</button>
+          <button type="button" class="btn-clear-nuoi" onclick="clearAllNuoiData()">🗑️ Xóa tất cả</button>
+        </div>
       </div>
       <div class="nuoi-grid">
         <div class="nuoi-field">
-          <label for="nuoi-nums">Số đang nuôi (2 số, cách nhau dấu phẩy/cách)</label>
-          <input type="text" id="nuoi-nums" placeholder="VD: 89, 03, 78" oninput="onNuoiChange()" />
+          <label for="nuoi-name">Tên dàn nuôi</label>
+          <input type="text" id="nuoi-name" placeholder="VD: Dàn khung 3N" oninput="onNuoiDraftChange()" />
+        </div>
+        <div class="nuoi-field">
+          <label for="nuoi-nums">Số đang nuôi (cách nhau dấu phẩy/cách)</label>
+          <input type="text" id="nuoi-nums" placeholder="VD: 89, 03, 78" oninput="onNuoiDraftChange()" />
         </div>
         <div class="nuoi-field">
           <label for="nuoi-type">Loại cược / Hình thức</label>
-          <select id="nuoi-type" onchange="onNuoiChange()">
+          <select id="nuoi-type" onchange="onNuoiDraftChange()">
             <option value="de" selected>Đề (2 số cuối GĐB)</option>
             <option value="lo">Lô / Loto 2 số (1 điểm)</option>
           </select>
         </div>
         <div class="nuoi-field">
           <label for="nuoi-base-amt">Tiền ngày 1 / 1 số (VNĐ)</label>
-          <input type="number" id="nuoi-base-amt" min="0" step="1000" value="10000" oninput="onNuoiChange()" />
+          <input type="number" id="nuoi-base-amt" min="0" step="1000" value="10000" oninput="onNuoiDraftChange()" />
         </div>
         <div class="nuoi-field">
           <label for="nuoi-step-mode">Cách tăng tiền các ngày sau</label>
-          <select id="nuoi-step-mode" onchange="onNuoiChange()">
+          <select id="nuoi-step-mode" onchange="onNuoiDraftChange()">
             <option value="flat" selected>Giữ nguyên mỗi ngày (x1)</option>
             <option value="add">Cộng thêm tiền gốc (+1x/ngày)</option>
             <option value="mul2">Gấp đôi mỗi ngày (x2/ngày)</option>
           </select>
         </div>
         <div class="nuoi-field">
-          <label for="nuoi-payout">Tỷ lệ ăn (VD: 95 hoặc 99)</label>
-          <input type="number" id="nuoi-payout" min="1" step="1" value="95" oninput="onNuoiChange()" />
+          <label for="nuoi-payout">Tỷ lệ ăn (VD: 70, 95, 99)</label>
+          <input type="number" id="nuoi-payout" min="1" step="1" value="95" oninput="onNuoiDraftChange()" />
         </div>
         <div class="nuoi-field">
           <label for="nuoi-days">Số ngày nuôi trong chu kỳ</label>
-          <input type="number" id="nuoi-days" min="1" max="30" step="1" value="7" oninput="onNuoiChange()" />
+          <input type="number" id="nuoi-days" min="1" max="30" step="1" value="3" oninput="onNuoiDraftChange()" />
         </div>
       </div>
       <div class="nuoi-summary" id="nuoi-summary-box"></div>
+      <div class="nuoi-table-wrap" id="nuoi-detail-table-wrap"></div>
     </div>
+
     <div class="table-wrap"><table class="stat-table" id="tbl-1"></table></div>
 
     <div class="page-footer-nav">
@@ -203,50 +296,16 @@
   </div>
   <script src="app.js"></script>
   <script>
-    function renderPage() {
-      if (!globalData) return;
-      const limit = parseInt(document.getElementById('limit-select').value, 10);
-      const fCham = document.getElementById('filter-cham').value;
-      const fTong = document.getElementById('filter-tong').value;
-      const fDe = document.getElementById('filter-de').value.trim();
-      const cfg = getNuoiConfig();
+    const NUOI_LIST_KEY = "thongkesxmb_tuan_nuoi_list_v2";
+    const NUOI_DRAFT_KEY = "thongkesxmb_tuan_nuoi_draft_v2";
 
-      const allNormWeeks = getNormalizedWeeks(globalData.weeks_gdb);
-      renderNuoiSummary(cfg, allNormWeeks);
-      const weeks = allNormWeeks.slice(0, limit);
-      const daysName = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
-      let h = `<thead><tr><th>Tuần (Từ T2 → CN)</th>${daysName.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>`;
-      weeks.forEach((wk, idx) => {
-        const tag = idx === 0 ? "Tuần hiện tại" : `Tuần -${idx}`;
-        h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>`;
-        for (let d = 0; d < 7; d++) {
-          const cDt = new Date(wk.mDt); cDt.setDate(wk.mDt.getDate() + d);
-          const dShort = formatShortDate(cDt);
-          const val = wk.nums[d] || "";
-          if (val) {
-            const de = val.slice(-2), t = sumLast2(val);
-            let match = false;
-            if (fCham || fTong || fDe) {
-              match = true;
-              if (fCham && !de.includes(fCham)) match = false;
-              if (fTong && String(t) !== fTong) match = false;
-              if (fDe && de !== fDe) match = false;
-            }
-            const isNuoiHit = cfg.nums.length > 0 && cfg.nums.includes(de);
-            const clsList = [];
-            if (match) clsList.push("highlight-match");
-            if (isNuoiHit) clsList.push("nuoi-cell-hit");
-            const badgeHtml = isNuoiHit ? `<br><span class="nuoi-badge-hit">TRÚNG NUÔI (${de})</span>` : "";
-            h += `<td class="${clsList.join(" ")}"><span class="date-tag">${dShort}</span><br><b>${val}</b><span class="de-sub"><span class="de-gray-pill">Đề ${de}</span> · Tổng ${t}</span>${badgeHtml}</td>`;
-          } else {
-            h += `<td style="color:#aaa"><span class="date-tag" style="color:#aaa">${dShort}</span><br>—</td>`;
-          }
-        }
-        h += `</tr>`;
-      });
-      document.getElementById("tbl-1").innerHTML = h + `</tbody>`;
+    function escapeHtml(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
-    const NUOI_STORAGE_KEY = "thongkesxmb_tuan_nuoi_v1";
 
     function parseNuoiList(raw) {
       const tokens = String(raw || "").split(/[^0-9]+/).filter(Boolean);
@@ -265,25 +324,44 @@
       return Math.round(Number(num) || 0).toLocaleString("vi-VN") + " đ";
     }
 
-    function getNuoiConfig() {
-      const nums = parseNuoiList(document.getElementById("nuoi-nums").value);
-      const type = document.getElementById("nuoi-type").value || "de";
-      const baseAmt = Math.max(0, Number(document.getElementById("nuoi-base-amt").value) || 0);
-      const stepMode = document.getElementById("nuoi-step-mode").value || "flat";
-      const payout = Math.max(1, Number(document.getElementById("nuoi-payout").value) || 95);
-      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 7));
-      return { nums, type, baseAmt, stepMode, payout, days };
-    }
-
     function dayMultiplier(dayIndex1Based, stepMode) {
       if (stepMode === "add") return dayIndex1Based;
       if (stepMode === "mul2") return Math.pow(2, dayIndex1Based - 1);
       return 1;
     }
 
-    function saveNuoiConfig() {
+    function getDraftNuoiConfig() {
+      const rawName = (document.getElementById("nuoi-name").value || "").trim();
+      const nums = parseNuoiList(document.getElementById("nuoi-nums").value);
+      const danName = rawName || (nums.length ? `Dàn nuôi (${nums.length} số)` : "");
+      const type = document.getElementById("nuoi-type").value || "de";
+      const baseAmt = Math.max(0, Number(document.getElementById("nuoi-base-amt").value) || 0);
+      const stepMode = document.getElementById("nuoi-step-mode").value || "flat";
+      const payout = Math.max(1, Number(document.getElementById("nuoi-payout").value) || 95);
+      const days = Math.min(30, Math.max(1, parseInt(document.getElementById("nuoi-days").value, 10) || 3));
+      return { danName, nums, type, baseAmt, stepMode, payout, days };
+    }
+
+    function getSavedDanList() {
+      try {
+        const raw = localStorage.getItem(NUOI_LIST_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function setSavedDanList(list) {
+      try {
+        localStorage.setItem(NUOI_LIST_KEY, JSON.stringify(list));
+      } catch (e) {}
+    }
+
+    function saveDraftToStorage() {
       try {
         const payload = {
+          nameRaw: document.getElementById("nuoi-name").value,
           numsRaw: document.getElementById("nuoi-nums").value,
           type: document.getElementById("nuoi-type").value,
           baseAmt: document.getElementById("nuoi-base-amt").value,
@@ -291,15 +369,16 @@
           payout: document.getElementById("nuoi-payout").value,
           days: document.getElementById("nuoi-days").value
         };
-        localStorage.setItem(NUOI_STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(NUOI_DRAFT_KEY, JSON.stringify(payload));
       } catch (e) {}
     }
 
-    function loadNuoiConfig() {
+    function loadDraftFromStorage() {
       try {
-        const raw = localStorage.getItem(NUOI_STORAGE_KEY);
+        const raw = localStorage.getItem(NUOI_DRAFT_KEY);
         if (!raw) return;
         const p = JSON.parse(raw);
+        if (p.nameRaw !== undefined) document.getElementById("nuoi-name").value = p.nameRaw;
         if (p.numsRaw !== undefined) document.getElementById("nuoi-nums").value = p.numsRaw;
         if (p.type) document.getElementById("nuoi-type").value = p.type;
         if (p.baseAmt !== undefined) document.getElementById("nuoi-base-amt").value = p.baseAmt;
@@ -309,18 +388,63 @@
       } catch (e) {}
     }
 
-    function clearNuoiData() {
-      try { localStorage.removeItem(NUOI_STORAGE_KEY); } catch (e) {}
+    function onNuoiDraftChange() {
+      saveDraftToStorage();
+      renderPage();
+    }
+
+    function saveCurrentDanToList() {
+      const cfg = getDraftNuoiConfig();
+      if (!cfg.nums.length) {
+        alert("Vui lòng nhập ít nhất 1 số đang nuôi trước khi lưu.");
+        document.getElementById("nuoi-nums").focus();
+        return;
+      }
+      const list = getSavedDanList();
+      const idx = list.length + 1;
+      const finalName = (document.getElementById("nuoi-name").value || "").trim() || `Dàn #${idx} (${cfg.nums.length} số)`;
+      list.push({
+        id: String(Date.now()) + "_" + Math.random().toString(36).slice(2, 6),
+        danName: finalName,
+        nums: cfg.nums,
+        type: cfg.type,
+        baseAmt: cfg.baseAmt,
+        stepMode: cfg.stepMode,
+        payout: cfg.payout,
+        days: cfg.days
+      });
+      setSavedDanList(list);
+      resetNuoiFormForNew(false);
+      renderPage();
+    }
+
+    function resetNuoiFormForNew(shouldRender = true) {
+      document.getElementById("nuoi-name").value = "";
+      document.getElementById("nuoi-nums").value = "";
+      try { localStorage.removeItem(NUOI_DRAFT_KEY); } catch (e) {}
+      if (shouldRender) {
+        renderPage();
+        document.getElementById("nuoi-name").focus();
+      }
+    }
+
+    function deleteSavedDan(id) {
+      const list = getSavedDanList().filter(item => item.id !== id);
+      setSavedDanList(list);
+      renderPage();
+    }
+
+    function clearAllNuoiData() {
+      try {
+        localStorage.removeItem(NUOI_LIST_KEY);
+        localStorage.removeItem(NUOI_DRAFT_KEY);
+      } catch (e) {}
+      document.getElementById("nuoi-name").value = "";
       document.getElementById("nuoi-nums").value = "";
       document.getElementById("nuoi-base-amt").value = "10000";
       document.getElementById("nuoi-step-mode").value = "flat";
       document.getElementById("nuoi-payout").value = "95";
-      document.getElementById("nuoi-days").value = "7";
-      renderPage();
-    }
-
-    function onNuoiChange() {
-      saveNuoiConfig();
+      document.getElementById("nuoi-days").value = "3";
       renderPage();
     }
 
@@ -344,61 +468,204 @@
       return entries;
     }
 
-    function renderNuoiSummary(cfg, allWeeks) {
+    function evaluateDanMetrics(dan, entries) {
+      const countNums = dan.nums.length;
+      const effectiveDays = Math.min(dan.days, entries.length || dan.days);
+      const recentSlice = entries.slice(-effectiveDays);
+      let totalCost = 0;
+      let totalWin = 0;
+      let hitCount = 0;
+      const dayBreakdown = [];
+
+      for (let i = 1; i <= dan.days; i++) {
+        const mult = dayMultiplier(i, dan.stepMode);
+        const dayCost = dan.baseAmt * mult * countNums;
+        const item = i <= effectiveDays ? recentSlice[i - 1] : null;
+        const isHit = !!(item && dan.nums.includes(item.de));
+        if (i <= effectiveDays) {
+          totalCost += dayCost;
+          if (isHit) {
+            hitCount += 1;
+            totalWin += dan.baseAmt * mult * dan.payout;
+          }
+        }
+        dayBreakdown.push({
+          day: i,
+          dayCost,
+          isHit,
+          hitDe: isHit ? item.de : ""
+        });
+      }
+
+      return {
+        countNums,
+        effectiveDays,
+        totalCost,
+        totalWin,
+        netProfit: totalWin - totalCost,
+        hitCount,
+        dayBreakdown
+      };
+    }
+
+    function renderNuoiPanel(draftCfg, savedList, allWeeks) {
       const box = document.getElementById("nuoi-summary-box");
-      if (!box) return;
-      if (!cfg.nums.length) {
-        box.innerHTML = `Nhập <b>Số đang nuôi</b> (ví dụ <code>89, 03</code>) và số tiền để tự động tính chi phí từng ngày, tổng vốn và tiền lãi/lỗ.`;
+      const tblWrap = document.getElementById("nuoi-detail-table-wrap");
+      if (!box || !tblWrap) return;
+
+      const entries = getChronologicalEntries(allWeeks);
+      const rowsToShow = savedList.map(item => ({ ...item, isDraft: false }));
+      if (draftCfg.nums.length > 0) {
+        rowsToShow.push({
+          id: "__draft__",
+          danName: draftCfg.danName + " (Đang nhập)",
+          nums: draftCfg.nums,
+          type: draftCfg.type,
+          baseAmt: draftCfg.baseAmt,
+          stepMode: draftCfg.stepMode,
+          payout: draftCfg.payout,
+          days: draftCfg.days,
+          isDraft: true
+        });
+      }
+
+      if (!rowsToShow.length) {
+        box.innerHTML = `Điền <b>Tên dàn nuôi</b>, <b>Số đang nuôi</b> và mức tiền vào các ô trên, sau đó bấm <b>💾 Lưu dàn vào bảng</b>. Sau khi lưu, bạn có thể bấm <b>➕ Thêm dàn mới</b> để lưu thêm nhiều dàn khác nhau.`;
+        tblWrap.innerHTML = "";
         return;
       }
 
-      const entries = getChronologicalEntries(allWeeks);
-      const countNums = cfg.nums.length;
-      const effectiveDays = Math.min(cfg.days, entries.length || cfg.days);
-      const recentSlice = entries.slice(-effectiveDays);
+      const maxDays = Math.max(...rowsToShow.map(r => r.days));
+      const dayHeaders = [];
+      for (let i = 1; i <= maxDays; i++) {
+        dayHeaders.push(`<th>Ngày ${i}</th>`);
+      }
 
-      let totalCost = 0;
-      let hitCount = 0;
-      const hitDetails = [];
-      const scheduleParts = [];
+      let grandSpent = 0;
+      let grandWin = 0;
 
-      for (let i = 1; i <= cfg.days; i++) {
-        const mult = dayMultiplier(i, cfg.stepMode);
-        const perNumCost = cfg.baseAmt * mult;
-        const dayCost = perNumCost * countNums;
-        if (i <= effectiveDays) {
-          totalCost += dayCost;
-          const item = recentSlice[i - 1];
-          const isHit = item && cfg.nums.includes(item.de);
-          if (isHit) {
-            hitCount += 1;
-            hitDetails.push(`Ngày ${i} (${item.dateStr}): về <b>${item.de}</b>`);
+      const bodyRowsHtml = rowsToShow.map(dan => {
+        const m = evaluateDanMetrics(dan, entries);
+        if (!dan.isDraft) {
+          grandSpent += m.totalCost;
+          grandWin += m.totalWin;
+        }
+        const dayCells = [];
+        for (let i = 1; i <= maxDays; i++) {
+          if (i > dan.days) {
+            dayCells.push(`<td style="color:#94a3b8;">—</td>`);
+          } else {
+            const dInfo = m.dayBreakdown[i - 1];
+            dayCells.push(
+              `<td style="${dInfo.isHit ? 'background:#dcfce7; font-weight:800; color:#166534;' : ''}">${formatVND(dInfo.dayCost)}${dInfo.isHit ? `<br><span style="font-size:10px;">✓ ${dInfo.hitDe}</span>` : ''}</td>`
+            );
           }
         }
-        scheduleParts.push(`N${i}: ${formatVND(dayCost)}`);
-      }
+        const profitColor = m.netProfit >= 0 ? "#15803d" : "#b91c1c";
+        const profitSign = m.netProfit >= 0 ? "+" : "";
+        const actionCell = dan.isDraft
+          ? `<button type="button" class="btn-save-nuoi" style="padding:3px 8px; font-size:11px;" onclick="saveCurrentDanToList()">Lưu</button>`
+          : `<button type="button" class="btn-row-del" onclick="deleteSavedDan('${dan.id}')">Xóa</button>`;
 
-      const unitWin = cfg.baseAmt * cfg.payout;
-      let totalWin = 0;
-      for (let i = 1; i <= recentSlice.length; i++) {
-        const item = recentSlice[i - 1];
-        if (cfg.nums.includes(item.de)) {
-          totalWin += cfg.baseAmt * dayMultiplier(i, cfg.stepMode) * cfg.payout;
-        }
-      }
-      const netProfit = totalWin - totalCost;
-      const profitColor = netProfit >= 0 ? "#15803d" : "#b91c1c";
-      const profitSign = netProfit >= 0 ? "+" : "";
+        return `<tr class="${dan.isDraft ? 'row-draft' : ''}">
+          <td class="col-name">${escapeHtml(dan.danName)}</td>
+          <td class="col-nums"><b>(${m.countNums}s)</b> ${escapeHtml(dan.nums.join(", "))}</td>
+          ${dayCells.join("")}
+          <td class="col-spent">${formatVND(m.totalCost)}</td>
+          <td style="font-weight:700; color:#15803d;">${formatVND(m.totalWin)}</td>
+          <td style="font-weight:800; color:${profitColor};">${profitSign}${formatVND(m.netProfit)}</td>
+          <td>${actionCell}</td>
+        </tr>`;
+      }).join("");
 
-      box.innerHTML = `
-        <div><b>Danh sách nuôi (${countNums} số):</b> <code>${cfg.nums.join(", ")}</code> · <b>Tỷ lệ ăn:</b> 1 ăn ${cfg.payout} · <b>Mức ăn 1 số ngày 1:</b> ${formatVND(unitWin)}</div>
-        <div style="margin-top:4px;"><b>Tiền vốn đã tính (${effectiveDays} ngày gần nhất):</b> <b>${formatVND(totalCost)}</b> · <b>Số lần trúng:</b> <b>${hitCount}</b> · <b>Tiền thu về:</b> <b>${formatVND(totalWin)}</b> · <b>Lãi/Lỗ ròng:</b> <b style="color:${profitColor}">${profitSign}${formatVND(netProfit)}</b></div>
-        <div style="margin-top:4px; font-size:12px; color:#334155;"><b>Lịch vào tiền theo ngày:</b> ${scheduleParts.join(" | ")}</div>
-        ${hitDetails.length ? `<div style="margin-top:4px; color:#166534;"><b>Các ngày trúng:</b> ${hitDetails.join(" · ")}</div>` : `<div style="margin-top:4px; color:#64748b;">Chưa có ngày nào trúng trong ${effectiveDays} ngày gần nhất.</div>`}
+      const grandProfit = grandWin - grandSpent;
+      const grandProfitColor = grandProfit >= 0 ? "#15803d" : "#b91c1c";
+      const grandProfitSign = grandProfit >= 0 ? "+" : "";
+
+      const totalRowHtml = savedList.length > 0 ? `
+        <tr class="row-total">
+          <td colspan="${2 + maxDays}" style="text-align:right;">TỔNG CỘNG (${savedList.length} dàn đã lưu):</td>
+          <td class="col-spent">${formatVND(grandSpent)}</td>
+          <td style="color:#15803d;">${formatVND(grandWin)}</td>
+          <td style="color:${grandProfitColor};">${grandProfitSign}${formatVND(grandProfit)}</td>
+          <td></td>
+        </tr>` : "";
+
+      box.innerHTML = `Đã lưu <b>${savedList.length}</b> dàn nuôi${draftCfg.nums.length ? ' (kèm 1 dàn đang nhập xem trước ở dòng vàng nhạt)' : ''}. Bấm <b>💾 Lưu dàn vào bảng</b> để chốt dàn hiện tại, sau đó nhập tiếp dàn mới.`;
+
+      tblWrap.innerHTML = `
+        <table class="nuoi-detail-table">
+          <thead>
+            <tr>
+              <th>Tên dàn nuôi</th>
+              <th>Số nuôi</th>
+              ${dayHeaders.join("")}
+              <th>Số tiền đã bỏ ra</th>
+              <th>Thu về</th>
+              <th>Lãi/Lỗ</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRowsHtml}
+            ${totalRowHtml}
+          </tbody>
+        </table>
       `;
     }
 
-    loadNuoiConfig();
+    function renderPage() {
+      if (!globalData) return;
+      const limit = parseInt(document.getElementById('limit-select').value, 10);
+      const fCham = document.getElementById('filter-cham').value;
+      const fTong = document.getElementById('filter-tong').value;
+      const fDe = document.getElementById('filter-de').value.trim();
+
+      const draftCfg = getDraftNuoiConfig();
+      const savedList = getSavedDanList();
+      const allTrackedNums = new Set([
+        ...draftCfg.nums,
+        ...savedList.flatMap(d => d.nums || [])
+      ]);
+
+      const allNormWeeks = getNormalizedWeeks(globalData.weeks_gdb);
+      renderNuoiPanel(draftCfg, savedList, allNormWeeks);
+
+      const weeks = allNormWeeks.slice(0, limit);
+      const daysName = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+      let h = `<thead><tr><th>Tuần (Từ T2 → CN)</th>${daysName.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>`;
+      weeks.forEach((wk, idx) => {
+        const tag = idx === 0 ? "Tuần hiện tại" : `Tuần -${idx}`;
+        h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>`;
+        for (let d = 0; d < 7; d++) {
+          const cDt = new Date(wk.mDt); cDt.setDate(wk.mDt.getDate() + d);
+          const dShort = formatShortDate(cDt);
+          const val = wk.nums[d] || "";
+          if (val) {
+            const de = val.slice(-2), t = sumLast2(val);
+            let match = false;
+            if (fCham || fTong || fDe) {
+              match = true;
+              if (fCham && !de.includes(fCham)) match = false;
+              if (fTong && String(t) !== fTong) match = false;
+              if (fDe && de !== fDe) match = false;
+            }
+            const isNuoiHit = allTrackedNums.has(de);
+            const clsList = [];
+            if (match) clsList.push("highlight-match");
+            if (isNuoiHit) clsList.push("nuoi-cell-hit");
+            const badgeHtml = isNuoiHit ? `<br><span class="nuoi-badge-hit">TRÚNG NUÔI (${de})</span>` : "";
+            h += `<td class="${clsList.join(" ")}"><span class="date-tag">${dShort}</span><br><b>${val}</b><span class="de-sub"><span class="de-gray-pill">Đề ${de}</span> · Tổng ${t}</span>${badgeHtml}</td>`;
+          } else {
+            h += `<td style="color:#aaa"><span class="date-tag" style="color:#aaa">${dShort}</span><br>—</td>`;
+          }
+        }
+        h += `</tr>`;
+      });
+      document.getElementById("tbl-1").innerHTML = h + `</tbody>`;
+    }
+
+    loadDraftFromStorage();
     loadSharedData(renderPage);
   </script>
 </body>
