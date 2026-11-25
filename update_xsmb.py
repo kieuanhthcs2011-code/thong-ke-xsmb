@@ -113,7 +113,26 @@ def fetch_day_minhngoc(dt):
         "top10": [m_db.group(1), m_g1.group(1)] + g2 + g3
     }
 
+def normalize_weeks_list(weeks_gdb):
+    """Chuẩn hóa danh sách weeks_gdb (xử lý an toàn cả phần tử dạng dict lẫn list cũ)."""
+    base_mon = datetime(2026, 11, 23)
+    norm = []
+    for idx, wk in enumerate(weeks_gdb):
+        if isinstance(wk, dict) and wk.get("monday"):
+            norm.append(wk)
+        elif isinstance(wk, list):
+            m_dt = base_mon - timedelta(days=7 * idx)
+            s_dt = m_dt + timedelta(days=6)
+            norm.append({
+                "monday": m_dt.strftime("%d/%m/%Y"),
+                "label": f"{m_dt.strftime('%d/%m')} - {s_dt.strftime('%d/%m/%Y')}",
+                "nums": (wk + ["", "", "", "", "", "", ""])[:7]
+            })
+    norm.sort(key=lambda w: datetime.strptime(w["monday"], "%d/%m/%Y"), reverse=True)
+    weeks_gdb[:] = norm
+
 def upsert_week_gdb(weeks_gdb, dt, db):
+    normalize_weeks_list(weeks_gdb)
     mon_dt = dt - timedelta(days=dt.weekday())
     sun_dt = mon_dt + timedelta(days=6)
     mon_str = mon_dt.strftime("%d/%m/%Y")
@@ -121,7 +140,7 @@ def upsert_week_gdb(weeks_gdb, dt, db):
 
     target_wk = None
     for wk in weeks_gdb:
-        if wk.get("monday") == mon_str:
+        if isinstance(wk, dict) and wk.get("monday") == mon_str:
             target_wk = wk
             break
 
@@ -143,6 +162,7 @@ def main():
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
+    normalize_weeks_list(data.setdefault("weeks_gdb", []))
     daily_map = {item["date"]: item["prizes"] for item in data["daily_prizes"]}
     updated = False
 
@@ -238,7 +258,9 @@ def main():
     aux_map = data.setdefault("cham_aux_by_mon_gdb", {})
     g1cn_map = data.setdefault("tinh_g1cn_by_mon_gdb", {})
     for wk in data["weeks_gdb"][:25]:
-        mon_gdb = wk["nums"][0] if len(wk["nums"]) > 0 else ""
+        if not isinstance(wk, dict):
+            continue
+        mon_gdb = wk["nums"][0] if len(wk.get("nums", [])) > 0 else ""
         if not mon_gdb:
             continue
         rec = aux_map.setdefault(mon_gdb, {"c_g74": "", "d_g1": "", "e_bg1": "", "ar_bg1t7": "", "as_g71_g74": ""})
