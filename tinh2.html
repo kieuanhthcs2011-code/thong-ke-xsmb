@@ -123,7 +123,7 @@
         // Cache D+1..D+7 stats for each weekday dIdx = 0..6 (T2..CN)
         const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(allWeeks, idx, dI));
 
-        // Cột tóm tắt tham chiếu D+1..D+7 tính từ T2 của tuần (dI = 0)
+        // Cột tham chiếu D+1..D+7 của hàng (từ T2 của tuần) — đối chiếu trực tiếp cho cả hàng
         const refD0 = dStats[0];
         const sumRefLabel = refD0.hasFull7
           ? `{${Array.from(refD0.sumsSet).sort().join(",")}}`
@@ -132,15 +132,15 @@
           ? `{${Array.from(refD0.chamSet).sort().join(",")}}`
           : `Đang ${refD0.count}/7N`;
         const refTip = refD0.daysDetail.length
-          ? `D+1..D+7 (từ T2): ${refD0.daysDetail.join(", ")}`
+          ? `D+1..D+7 của hàng (từ T2): ${refD0.daysDetail.join(", ")}`
           : "Chờ đủ 7 ngày tiếp theo (D+1..D+7)";
 
         const renderTongCell = (val, dIdx) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           if (s === "") return `<td></td>`;
-          const st = dStats[dIdx];
+          const st = refD0;
           const tip = st.daysDetail.length
-            ? `7 ngày sau ngày mốc (D+1..D+7): ${st.daysDetail.join(", ")} | Tập tổng: {${Array.from(st.sumsSet).sort().join(",")}}`
+            ? `D+1..D+7 của hàng: ${st.daysDetail.join(", ")} | Tập tổng: {${Array.from(st.sumsSet).sort().join(",")}}`
             : "Chờ đủ 7 ngày tiếp theo (D+1..D+7)";
           if (!st.hasFull7) return `<td title="${tip}"><b>${s}</b></td>`;
           const dig = parseInt(s, 10);
@@ -151,9 +151,9 @@
         const renderChamCell = (val, dIdx) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           if (s === "") return `<td></td>`;
-          const st = dStats[dIdx];
+          const st = refD0;
           const tip = st.daysDetail.length
-            ? `7 ngày sau ngày mốc (D+1..D+7): ${st.daysDetail.join(", ")} | Tập chạm: {${Array.from(st.chamSet).sort().join(",")}}`
+            ? `D+1..D+7 của hàng: ${st.daysDetail.join(", ")} | Tập chạm: {${Array.from(st.chamSet).sort().join(",")}}`
             : "Chờ đủ 7 ngày tiếp theo (D+1..D+7)";
           if (!st.hasFull7) return `<td title="${tip}"><b>${s}</b></td>`;
           const dig = parseInt(s, 10);
