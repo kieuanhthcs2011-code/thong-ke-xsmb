@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trang 7: Sheet Chạm & Cầu Pascal (82 Cột) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
     .group-filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .grp-btn {
@@ -206,7 +207,12 @@
 
         if (showPascal) {
           h += [r.AX, r.AY, r.AZ, r.BA, r.BB, r.BC, r.BD]
-            .map(v => `<td class="td-sum-p">${v}</td>`).join("");
+            .map(v => {
+              const s = (v !== undefined && v !== null) ? String(v).trim() : "";
+              if (s === "") return `<td class="td-sum-p"></td>`;
+              const notHit = hasFull7 && !nextChamSet.has(s);
+              return `<td class="${notHit ? 'bg-yellow' : 'td-sum-p'}">${s}</td>`;
+            }).join("");
           r.pascals.forEach(p => {
             h += `<td>${p.p4}</td><td>${p.p3}</td><td class="td-pascal-final">${p.p2}</td>`;
           });
