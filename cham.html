@@ -31,6 +31,60 @@
     .td-sum-t { background: #eff6ff; font-weight: 800; color: #1e3a8a; }
     .pascal-gdb-sub { display: block; font-size: 10px; font-weight: 600; color: #475569; margin-top: 2px; }
     .bg-yellow .pascal-gdb-sub { color: #991b1b; }
+    .yellow-streak-panel {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    }
+    .yellow-streak-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .yellow-streak-title {
+      font-weight: 800;
+      font-size: 13.5px;
+      color: #0f172a;
+    }
+    .yellow-streak-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+    }
+    .yellow-streak-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 7px 9px;
+      background: #f8fafc;
+      font-size: 12px;
+    }
+    .yellow-streak-card.has-max {
+      background: #fefce8;
+      border-color: #eab308;
+    }
+    .yellow-streak-col {
+      font-weight: 800;
+      color: #1e3a8a;
+      font-size: 12px;
+    }
+    .yellow-streak-val {
+      margin-top: 2px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #b91c1c;
+    }
+    .yellow-streak-cur {
+      margin-top: 2px;
+      font-size: 11px;
+      color: #475569;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -78,6 +132,14 @@
         <button class="grp-btn" onclick="setColGroup('cham', this)">2. Cầu Chạm & Cộng Dồn Tuần (Cột AM–AV)</button>
         <button class="grp-btn" onclick="setColGroup('pascal', this)">3. Tổng 2 Số Pascal (So Chạm & So Tổng) + Chi Tiết Pascal</button>
       </div>
+    </div>
+
+        <div class="yellow-streak-panel" id="yellow-streak-box">
+      <div class="yellow-streak-head">
+        <span class="yellow-streak-title">📊 THỐNG KÊ CHUỖI Ô MÀU VÀNG LIÊN TIẾP CAO NHẤT TỪNG CỘT</span>
+        <span style="font-size:11.5px; color:#475569;">Đếm số ô màu vàng liền kề (không trúng 7 ngày sau) trên các hàng đang hiển thị</span>
+      </div>
+      <div class="yellow-streak-grid" id="yellow-streak-grid"></div>
     </div>
 
     <div class="table-wrap">
@@ -260,6 +322,111 @@
       });
 
       document.getElementById("tbl-cham").innerHTML = h + `</tbody>`;
+      renderYellowStreakStats(weeks, allWeeks, auxMap, showTach, showCham, showPascal);
+    }
+
+    function renderYellowStreakStats(weeks, allWeeks, auxMap, showTach, showCham, showPascal) {
+      const grid = document.getElementById("yellow-streak-grid");
+      if (!grid || !globalData) return;
+
+      // Build ordered list of visible columns matching the rendered table rows
+      const cols = [];
+      if (showTach) {
+        const tachMeta = [
+          ["d+e(T2)", 0, "A"], ["d-e(T2)", 0, "B"], ["d+e(G7-4)", 0, "C"], ["d+e(G1)", 0, "D"], ["b(G1)", 0, "E"],
+          ["b(T2)", 0, "F"], ["c(T2)", 0, "G"],
+          ["c(T3)", 1, "H"], ["d+e(T3)", 1, "I"], ["d-e(T3)", 1, "J"], ["b(T3)", 1, "K"],
+          ["b(T4)", 2, "L"], ["c(T4)", 2, "M"], ["d+e(T4)", 2, "N"], ["d-e(T4)", 2, "O"],
+          ["b(T5)", 3, "P"], ["c(T5)", 3, "Q"], ["e+d(T5)", 3, "R"], ["e-d(T5)", 3, "S"],
+          ["b(T6)", 4, "T"], ["c(T6)", 4, "U"], ["e+d(T6)", 4, "V"], ["e-d(T6)", 4, "W"],
+          ["b(T7)", 5, "X"], ["c(T7)", 5, "Y"], ["e+d(T7)", 5, "Z"], ["e-d(T7)", 5, "AA"],
+          ["b(CN)", 6, "AB"], ["c(CN)", 6, "AC"], ["e+d(CN)", 6, "AD"], ["e-d(CN)", 6, "AE"]
+        ];
+        tachMeta.forEach(([label, dIdx, key]) => {
+          cols.push({ label, kind: "cham", getVal: r => r[key], dIdx });
+        });
+      }
+      if (showCham) {
+        const chamMeta = [
+          ["c(T4)", 2, "AM"], ["c(T7)", 5, "AN"], ["c(CN)", 6, "AO"], ["e+1(T5)", 3, "AP"], ["e-1(T6)", 4, "AQ"],
+          ["b(G1-T7)", 5, "AR"], ["b(G7-1)+a(G7-4)", 6, "AS"], ["Tổng d(7N)", 6, "AT"], ["Tổng b(7N)", 6, "AU"], ["Tổng c(7N)", 6, "AV"]
+        ];
+        chamMeta.forEach(([label, dIdx, key]) => {
+          cols.push({ label, kind: "cham", getVal: r => r[key], dIdx });
+        });
+      }
+      if (showPascal) {
+        const pKeys = ["AX", "AY", "AZ", "BA", "BB", "BC", "BD"];
+        const pDays = ["T2(AX)", "T3(AY)", "T4(AZ)", "T5(BA)", "T6(BB)", "T7(BC)", "CN(BD)"];
+        pKeys.forEach((key, dIdx) => {
+          cols.push({ label: `${pDays[dIdx]} Chạm`, kind: "cham", getVal: r => r[key], dIdx });
+        });
+        const tDays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+        pKeys.forEach((key, dIdx) => {
+          cols.push({ label: `${tDays[dIdx]} Tổng`, kind: "tong", getVal: r => r[key], dIdx });
+        });
+      }
+
+      // Evaluate yellow state per column across weeks
+      const stats = cols.map(c => ({
+        label: c.label,
+        maxStreak: 0,
+        curStreak: 0,
+        yellowCount: 0,
+        flags: []
+      }));
+
+      weeks.forEach((wk, idx) => {
+        const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
+        const r = computeChamSheetRow(wk, prevWk, auxMap, globalData.daily_prizes);
+        const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(allWeeks, idx, dI));
+
+        cols.forEach((c, cIdx) => {
+          const rawVal = c.getVal(r);
+          const s = (rawVal !== undefined && rawVal !== null) ? String(rawVal).trim() : "";
+          const st = dStats[c.dIdx];
+          let isYellow = false;
+          if (s !== "" && st && st.hasFull7) {
+            const dig = parseInt(s, 10);
+            const targetSet = c.kind === "cham" ? st.chamSet : st.sumsSet;
+            if (!Number.isNaN(dig) && !targetSet.has(dig)) {
+              isYellow = true;
+            }
+          }
+          stats[cIdx].flags.push(isYellow);
+          if (isYellow) {
+            stats[cIdx].yellowCount += 1;
+            stats[cIdx].curStreak += 1;
+            if (stats[cIdx].curStreak > stats[cIdx].maxStreak) {
+              stats[cIdx].maxStreak = stats[cIdx].curStreak;
+            }
+          } else {
+            stats[cIdx].curStreak = 0;
+          }
+        });
+      });
+
+      // Compute running yellow streak at end of visible slice
+      stats.forEach(st => {
+        let run = 0;
+        for (let i = st.flags.length - 1; i >= 0; i--) {
+          if (st.flags[i]) run += 1;
+          else break;
+        }
+        st.runningEnd = run;
+      });
+
+      const priority = stats.slice().sort((a, b) => (b.maxStreak - a.maxStreak) || (b.yellowCount - a.yellowCount));
+      const topCards = priority.slice(0, 14);
+
+      grid.innerHTML = topCards.map(item => {
+        const hasMax = item.maxStreak > 0;
+        return `<div class="yellow-streak-card ${hasMax ? 'has-max' : ''}">
+          <div class="yellow-streak-col">${item.label}</div>
+          <div class="yellow-streak-val">Gan vàng max: ${item.maxStreak} ô</div>
+          <div class="yellow-streak-cur">Tổng vàng: ${item.yellowCount} ô · Cuối chuỗi: ${item.runningEnd} ô</div>
+        </div>`;
+      }).join("");
     }
 
     loadSharedData(renderPage);
