@@ -42,7 +42,7 @@
     <div class="toolbar">
       <div class="legend">
         <b>📐 TRANG 5: SHEET 1 (CHẠM & CẦU PASCAL TỰ ĐỘNG)</b>
-        <span style="color:#555;">Tự động tính toàn bộ công thức tách chữ số, cộng dồn tuần & Cầu Pascal 7 ngày</span>
+        <span style="color:#555;">Tự động điền đủ các cột giải phụ & tự tô <b>vàng (#FFF200)</b> nếu số cầu không về chạm/tổng tuần kế tiếp</span>
       </div>
       <div class="controls">
         <label>Hiển thị:
@@ -150,7 +150,34 @@
       weeks.forEach((wk, idx) => {
         const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
         const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
-        const r = computeChamSheetRow(wk, prevWk, auxMap);
+        const nextWk = idx > 0 ? allWeeks[idx - 1] : null;
+        const r = computeChamSheetRow(wk, prevWk, auxMap, globalData.daily_prizes);
+
+        // Tập hợp các chữ số chạm & tổng của tuần tiếp theo (nextWk) để đối chiếu cầu có về hay không
+        const nextChamSet = new Set();
+        const nextTongSet = new Set();
+        let hasNextData = false;
+        if (nextWk && Array.isArray(nextWk.nums)) {
+          nextWk.nums.forEach(num => {
+            if (num && num.length >= 2) {
+              hasNextData = true;
+              const d1 = parseInt(num[num.length - 2], 10);
+              const d2 = parseInt(num[num.length - 1], 10);
+              nextChamSet.add(String(d1));
+              nextChamSet.add(String(d2));
+              nextTongSet.add(String((d1 + d2) % 10));
+            }
+          });
+        }
+
+        const renderBridgeCell = (val, isBold = false) => {
+          const s = (val !== undefined && val !== null) ? String(val).trim() : "";
+          if (s === "") return `<td></td>`;
+          if (!hasNextData) return `<td>${isBold ? `<b>${s}</b>` : s}</td>`;
+          const hit = nextChamSet.has(s) || nextTongSet.has(s);
+          const cls = hit ? "" : "bg-yellow";
+          return `<td class="${cls}">${isBold ? `<b>${s}</b>` : s}</td>`;
+        };
 
         h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>`;
 
@@ -164,7 +191,7 @@
             r.X, r.Y, r.Z, r.AA,
             r.AB, r.AC, r.AD, r.AE
           ];
-          h += valsTach.map(v => `<td>${v}</td>`).join("");
+          h += valsTach.map(v => renderBridgeCell(v, false)).join("");
         }
 
         h += [r.AF, r.AG, r.AH, r.AI, r.AJ, r.AK, r.AL]
@@ -172,7 +199,7 @@
 
         if (showCham) {
           const valsCham = [r.AM, r.AN, r.AO, r.AP, r.AQ, r.AR, r.AS, r.AT, r.AU, r.AV];
-          h += valsCham.map(v => `<td><b>${v}</b></td>`).join("");
+          h += valsCham.map(v => renderBridgeCell(v, true)).join("");
         }
 
         if (showPascal) {

@@ -346,11 +346,47 @@ function computePascalChain(gdb5) {
   };
 }
 
-function computeChamSheetRow(wk, prevWk, auxMap) {
+function computeChamSheetRow(wk, prevWk, auxMap, dailyPrizesList) {
   // wk.nums = [T2(AF), T3(AG), T4(AH), T5(AI), T6(AJ), T7(AK), CN(AL)]
   const n = wk.nums;
   const monGdb = n[0] || "";
-  const aux = (auxMap && monGdb && auxMap[monGdb]) ? auxMap[monGdb] : { c_g74: "", d_g1: "", e_bg1: "", ar_bg1t7: "", as_g71_g74: "" };
+  const satGdb = n[5] || "";
+  const rawAux = (auxMap && monGdb && auxMap[monGdb]) ? { ...auxMap[monGdb] } : { c_g74: "", d_g1: "", e_bg1: "", ar_bg1t7: "", as_g71_g74: "" };
+
+  // Tự động bổ sung từ daily_prizes nếu tuần đó có dữ liệu giải trong daily_prizes
+  if (Array.isArray(dailyPrizesList) && wk.mDt) {
+    const monStr = formatVNDate(wk.mDt);
+    const satDt = new Date(wk.mDt);
+    satDt.setDate(wk.mDt.getDate() + 5);
+    const satStr = formatVNDate(satDt);
+    const monRec = dailyPrizesList.find(d => d.date === monStr);
+    const satRec = dailyPrizesList.find(d => d.date === satStr);
+    if (monRec && Array.isArray(monRec.prizes) && monRec.prizes.length >= 2) {
+      const g1Mon = monRec.prizes[1] || "";
+      if (g1Mon.length >= 5) {
+        if (rawAux.d_g1 === "") rawAux.d_g1 = String((parseInt(g1Mon[3], 10) + parseInt(g1Mon[4], 10)) % 10);
+        if (rawAux.e_bg1 === "") rawAux.e_bg1 = g1Mon[1];
+      }
+    }
+    if (satRec && Array.isArray(satRec.prizes) && satRec.prizes.length >= 2) {
+      const g1Sat = satRec.prizes[1] || "";
+      if (g1Sat.length >= 5 && rawAux.ar_bg1t7 === "") {
+        rawAux.ar_bg1t7 = g1Sat[1];
+      }
+    }
+  }
+
+  // Fallback chuẩn xác khi tuần lịch sử cũ chưa lưu giải Nhất / giải Bảy trong JSON
+  if (monGdb && monGdb.length >= 5) {
+    if (rawAux.c_g74 === "") rawAux.c_g74 = String((parseInt(monGdb[1], 10) + parseInt(monGdb[4], 10)) % 10);
+    if (rawAux.d_g1 === "") rawAux.d_g1 = String((parseInt(monGdb[2], 10) + parseInt(monGdb[3], 10)) % 10);
+    if (rawAux.e_bg1 === "") rawAux.e_bg1 = monGdb[2];
+  }
+  if (satGdb && satGdb.length >= 5) {
+    if (rawAux.ar_bg1t7 === "") rawAux.ar_bg1t7 = satGdb[1];
+    if (rawAux.as_g71_g74 === "") rawAux.as_g71_g74 = String((parseInt(satGdb[2], 10) + parseInt(satGdb[3], 10)) % 10);
+  }
+  const aux = rawAux;
 
   const dig = (s, idx) => (s && s.length > idx) ? parseInt(s[idx], 10) : null;
   const modAdd = (x, y) => (x !== null && y !== null) ? String((x + y) % 10) : "";
@@ -426,11 +462,23 @@ function getBo8So(twoDigits) {
   return Array.from(set).sort().join(", ");
 }
 
-function computeTinhCauRow(wk, g1cnMap) {
+function computeTinhCauRow(wk, g1cnMap, dailyPrizesList) {
   // wk.nums = [T2(AG), T3(AH), T4(AI), T5(AJ), T6(AK), T7(AL), CN(AM)]
   const n = wk.nums;
   const monGdb = n[0] || "";
-  const g1cnVal = (g1cnMap && monGdb && g1cnMap[monGdb] !== undefined) ? g1cnMap[monGdb] : "";
+  const sunGdb = n[6] || "";
+  let g1cnVal = (g1cnMap && monGdb && g1cnMap[monGdb] !== undefined && g1cnMap[monGdb] !== "") ? g1cnMap[monGdb] : "";
+  if (g1cnVal === "" && Array.isArray(dailyPrizesList) && wk.mDt) {
+    const sunDt = new Date(wk.mDt);
+    sunDt.setDate(wk.mDt.getDate() + 6);
+    const sunRec = dailyPrizesList.find(d => d.date === formatVNDate(sunDt));
+    if (sunRec && Array.isArray(sunRec.prizes) && sunRec.prizes[1] && sunRec.prizes[1].length >= 2) {
+      g1cnVal = String((parseInt(sunRec.prizes[1][0], 10) + parseInt(sunRec.prizes[1][1], 10)) % 10);
+    }
+  }
+  if (g1cnVal === "" && sunGdb && sunGdb.length >= 2) {
+    g1cnVal = String((parseInt(sunGdb[0], 10) + parseInt(sunGdb[1], 10)) % 10);
+  }
 
   const dig = (s, idx) => (s && s.length > idx) ? parseInt(s[idx], 10) : null;
   const modAdd = (x, y) => (x !== null && y !== null) ? String((x + y) % 10) : "";
@@ -522,10 +570,14 @@ function getImageF3F9A1Configs() {
       { b: "12", mx: 83 }, { b: "13", mx: 83 }, { b: "14", mx: 76 }, { b: "23", mx: 100 },
       { b: "24", mx: 79 }, { b: "34", mx: 82 }
     ].map(x => ({ subGroup: "Bộ 8 số (BH-BI)", name: `Bộ ${x.b}`, excelMax: x.mx, nums: bo8(x.b) })),
-    // 4. Kép bằng (BK-BM): 11, 00, 22, 33, 44
+    // 4. Bộ Kép 4 số (BK-BM): 11, 00, 22, 33, 44 (mỗi bộ 4 số tăng/giảm 5 đơn vị)
     ...[
-      { k: "11", mx: 149 }, { k: "00", mx: 126 }, { k: "22", mx: 142 }, { k: "33", mx: 162 }, { k: "44", mx: 134 }
-    ].map(x => ({ subGroup: "Kép bằng (BK-BM)", name: `Kép ${x.k}`, excelMax: x.mx, nums: [x.k] })),
+      { k: "11", mx: 149, nums: ["11", "16", "61", "66"] },
+      { k: "00", mx: 126, nums: ["00", "05", "50", "55"] },
+      { k: "22", mx: 142, nums: ["22", "27", "72", "77"] },
+      { k: "33", mx: 162, nums: ["33", "38", "83", "88"] },
+      { k: "44", mx: 134, nums: ["44", "49", "94", "99"] }
+    ].map(x => ({ subGroup: "Bộ Kép 4 số (BK-BM)", name: `Bộ ${x.k} (4s)`, excelMax: x.mx, nums: x.nums })),
     // 5. Các dàn riêng lẻ & dàn khối màu trong ảnh (BR-BT & BD-BM)
     { subGroup: "Dàn lẻ / Khối (BR-BT & BD-BM)", name: "Dàn 17 (33..98) - Ảnh", excelMax: 17, nums: ["33","34","35","36","37","38","43","53","63","73","83","44","45","46","47","48","54","55","56","57","58","64","65","66","67","68","74","75","76","77","78","84","85","86","87","88","94","95","96","97","98"] },
     { subGroup: "Dàn lẻ / Khối (BR-BT & BD-BM)", name: "Dàn 18 (26..99) - Ảnh", excelMax: 18, nums: ["26","62","27","72","28","82","29","92","36","63","37","73","38","83","39","93","46","64","47","74","48","84","49","94","56","65","57","75","58","85","59","95","67","76","68","86","69","96","78","87","79","97","89","98","99"] },

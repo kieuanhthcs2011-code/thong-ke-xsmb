@@ -101,7 +101,7 @@
 
       weeks.forEach((wk, idx) => {
         const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
-        const r = computeTinhCauRow(wk, g1cnMap);
+        const r = computeTinhCauRow(wk, g1cnMap, globalData.daily_prizes);
 
         h += `<tr>
           <td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>

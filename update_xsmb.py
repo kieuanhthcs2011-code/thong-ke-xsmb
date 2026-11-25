@@ -234,6 +234,45 @@ def main():
     ][-90:]
     data["daily_prizes"] = sorted_daily
 
+    # Đảm bảo tất cả các tuần gần đây đều có đủ dữ liệu giải phụ (C, D, E, AR, AS, G1CN)
+    aux_map = data.setdefault("cham_aux_by_mon_gdb", {})
+    g1cn_map = data.setdefault("tinh_g1cn_by_mon_gdb", {})
+    for wk in data["weeks_gdb"][:25]:
+        mon_gdb = wk["nums"][0] if len(wk["nums"]) > 0 else ""
+        if not mon_gdb:
+            continue
+        rec = aux_map.setdefault(mon_gdb, {"c_g74": "", "d_g1": "", "e_bg1": "", "ar_bg1t7": "", "as_g71_g74": ""})
+        mon_dt = datetime.strptime(wk["monday"], "%d/%m/%Y")
+        sat_dt = mon_dt + timedelta(days=5)
+        sun_dt = mon_dt + timedelta(days=6)
+        if not rec.get("c_g74") or not rec.get("d_g1") or not rec.get("e_bg1"):
+            try:
+                p_mon = fetch_day_minhngoc(mon_dt)
+                if p_mon and p_mon.get("g1") and len(p_mon.get("g7", [])) >= 4:
+                    rec["c_g74"] = str((int(p_mon["g7"][3][0]) + int(p_mon["g7"][3][1])) % 10)
+                    rec["d_g1"] = str((int(p_mon["g1"][3]) + int(p_mon["g1"][4])) % 10)
+                    rec["e_bg1"] = p_mon["g1"][1]
+                    updated = True
+            except Exception:
+                pass
+        if not rec.get("ar_bg1t7") or not rec.get("as_g71_g74"):
+            try:
+                p_sat = fetch_day_minhngoc(sat_dt)
+                if p_sat and p_sat.get("g1") and len(p_sat.get("g7", [])) >= 4:
+                    rec["ar_bg1t7"] = p_sat["g1"][1]
+                    rec["as_g71_g74"] = str((int(p_sat["g7"][0][1]) + int(p_sat["g7"][3][0])) % 10)
+                    updated = True
+            except Exception:
+                pass
+        if mon_gdb not in g1cn_map or not g1cn_map[mon_gdb]:
+            try:
+                p_sun = fetch_day_minhngoc(sun_dt)
+                if p_sun and p_sun.get("g1"):
+                    g1cn_map[mon_gdb] = str((int(p_sun["g1"][0]) + int(p_sun["g1"][1])) % 10)
+                    updated = True
+            except Exception:
+                pass
+
     if updated:
         now_vn = datetime.now(VN_TZ).strftime("%d/%m/%Y %H:%M")
         data["last_updated"] = now_vn
