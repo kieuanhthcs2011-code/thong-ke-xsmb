@@ -39,7 +39,7 @@
     <div class="toolbar">
       <div class="legend">
         <b>🧮 TRANG 6: PHÂN CỘT TỔNG MỘT BÊN – CHẠM MỘT BÊN (SO SÁNH 7 NGÀY TIẾP THEO D+1 → D+7)</b>
-        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Cột Tổng không trùng hàng đơn vị tổng 2 số cuối của <b>D+1 → D+7</b>, hoặc cột Chạm không trùng 1 trong 2 số cuối của <b>D+1 → D+7</b></span>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Cột Tổng không trùng cả 2 số của cặp <b>Tổng &amp; (Tổng+5)</b> trong <b>D+1 → D+7</b>, hoặc cột Chạm không trùng 1 trong 2 số cuối của <b>D+1 → D+7</b></span>
         <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Có trùng trong <b>D+1 → D+7</b> hoặc chưa đủ 7 ngày tiếp theo</span>
       </div>
       <div class="controls">
@@ -138,14 +138,18 @@
         const renderTongCell = (val, dIdx) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           if (s === "") return `<td></td>`;
+          const dig = parseInt(s, 10);
+          const pairDig = !Number.isNaN(dig) ? (dig + 5) % 10 : null;
+          const displayLabel = pairDig !== null ? `${s}(${pairDig})` : s;
           const st = refD0;
           const tip = st.daysDetail.length
-            ? `D+1..D+7 của hàng: ${st.daysDetail.join(", ")} | Tập tổng: {${Array.from(st.sumsSet).sort().join(",")}}`
-            : "Chờ đủ 7 ngày tiếp theo (D+1..D+7)";
-          if (!st.hasFull7) return `<td title="${tip}"><b>${s}</b></td>`;
-          const dig = parseInt(s, 10);
-          const notHit = !Number.isNaN(dig) && !st.sumsSet.has(dig);
-          return `<td class="${notHit ? 'bg-yellow' : ''}" title="${tip}"><b>${s}</b></td>`;
+            ? `Cặp tổng ${displayLabel} (so cả ${dig} và ${pairDig}) | D+1..D+7 của hàng: ${st.daysDetail.join(", ")} | Tập tổng: {${Array.from(st.sumsSet).sort().join(",")}}`
+            : `Cặp tổng ${displayLabel} | Chờ đủ 7 ngày tiếp theo (D+1..D+7)`;
+          if (!st.hasFull7) return `<td title="${tip}"><b>${displayLabel}</b></td>`;
+          const hitMain = !Number.isNaN(dig) && st.sumsSet.has(dig);
+          const hitPair = pairDig !== null && st.sumsSet.has(pairDig);
+          const notHit = !Number.isNaN(dig) && !(hitMain || hitPair);
+          return `<td class="${notHit ? 'bg-yellow' : ''}" title="${tip}"><b>${displayLabel}</b></td>`;
         };
 
         const renderChamCell = (val, dIdx) => {
