@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trang 2: Dàn Nuôi & Chu Kỳ (Không Dàn Trùng) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
     .sub-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
     .sub-btn {
@@ -125,7 +126,14 @@
     <div class="card-panel">
       <div class="card-header">
         <span id="matrix-card-title">2. BẢNG THEO DÕI CHI TIẾT TỪNG NGÀY (50 NGÀY GẦN NHẤT — NGÀY VỀ TÔ XANH, CHƯA VỀ ĐẾM 1, 2, 3...)</span>
-        <span style="font-size:11px; font-weight:normal;">Kéo ngang để xem đủ tất cả các cột dàn</span>
+        <span style="font-size:11px; font-weight:normal;">Bấm <b>[Xem số ▾]</b> trên tiêu đề cột để xem các số trong dàn</span>
+      </div>
+      <div id="matrix-dan-nums-panel" style="display:none; padding:10px 14px; background:#eff6ff; border-bottom:1px solid #93c5fd; font-size:12px; line-height:1.5;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px;">
+          <b id="matrix-dan-nums-title" style="color:#14365d; font-size:13px;"></b>
+          <button type="button" onclick="document.getElementById('matrix-dan-nums-panel').style.display='none'" style="border:1px solid #93c5fd; background:#fff; color:#1e40af; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; cursor:pointer;">✕ Đóng</button>
+        </div>
+        <div id="matrix-dan-nums-list" style="color:#1e293b; font-weight:600; word-break:break-word;"></div>
       </div>
       <div style="overflow-x:auto; max-height:70vh;">
         <table class="stat-table" id="tbl-nuoi-daily-matrix"></table>
@@ -207,6 +215,16 @@
 
   <script src="app.js"></script>
   <script>
+
+    function showMatrixDanNums(idx) {
+      const list = window._MATRIX_CONFIGS || [];
+      const cfg = list[idx];
+      const panel = document.getElementById("matrix-dan-nums-panel");
+      if (!cfg || !panel) return;
+      document.getElementById("matrix-dan-nums-title").textContent = `${cfg.name} (${cfg.count} số):`;
+      document.getElementById("matrix-dan-nums-list").textContent = cfg.nums.join(", ");
+      panel.style.display = "block";
+    }
 
     let f3f9FilterMode = 'all';
     function filterF3F9(mode, btn) {
@@ -381,13 +399,15 @@
       }
 
       const sliceRows = dailyHistoryRows.slice(-matrixDays).reverse();
+      window._MATRIX_CONFIGS = configs;
       let hMat = `<thead><tr>
         <th>Ngày</th>
         <th>ĐB (Đề)</th>
-        ${configs.map(c => {
+        ${configs.map((c, cIdx) => {
           const gTxt = c.st.daysSince === 0 ? "về 0 ngày" : `gan ${c.st.daysSince} ngày`;
           const pCls = c.st.daysSince === 0 ? "th-gan-pill is-zero" : "th-gan-pill";
-          return `<th>${c.short} (${c.count}s)<br><span class="${pCls}">${gTxt}</span></th>`;
+          const tip = `${c.name} (${c.count}s): ${c.nums.join(", ")}`;
+          return `<th title="${tip}">${c.short} (${c.count}s)<br><span class="${pCls}">${gTxt}</span><br><button type="button" onclick="showMatrixDanNums(${cIdx})" style="margin-top:3px; border:1px solid #bfdbfe; background:#fff; color:#1e3a8a; border-radius:4px; padding:1px 6px; font-size:10px; font-weight:700; cursor:pointer;">[Xem số ▾]</button></th>`;
         }).join("")}
       </tr></thead><tbody>`;
 

@@ -22,11 +22,15 @@
     .th-gdb { background: #1d6f42 !important; }
     .th-cham-ref { background: #0f766e !important; }
     .th-pascal { background: #7030a0 !important; }
-    .th-sum { background: #b85d00 !important; }
+    .th-sum-cham { background: #b85d00 !important; }
+    .th-sum-tong { background: #1e569b !important; }
     .td-gdb { background: #f2fbf5; font-weight: 700; color: #0f3d0f; }
     .td-cham-ref { background: #f0fdfa; font-weight: 700; color: #115e59; }
     .td-pascal-final { background: #fff200; font-weight: 800; color: #c00000; }
     .td-sum-p { background: #fce4d6; font-weight: 800; color: #833c0c; }
+    .td-sum-t { background: #eff6ff; font-weight: 800; color: #1e3a8a; }
+    .pascal-gdb-sub { display: block; font-size: 10px; font-weight: 600; color: #475569; margin-top: 2px; }
+    .bg-yellow .pascal-gdb-sub { color: #991b1b; }
   </style>
 </head>
 <body>
@@ -50,9 +54,9 @@
   <div class="container">
     <div class="toolbar">
       <div class="legend">
-        <b>📐 TRANG 7: SHEET 1 (CHẠM & CẦU PASCAL TỰ ĐỘNG)</b>
-        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Chữ số cầu <b>không trùng 1 trong 2 số cuối GĐB 7 ngày liền sau đó</b></span>
-        <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Trùng ít nhất 1 trong 2 số cuối GĐB 7 ngày liền sau đó (hoặc đang chờ đủ 7 ngày)</span>
+        <b>📐 TRANG 7: SHEET 1 (CHẠM & CẦU PASCAL TỰ ĐỘNG — ĐỐI CHIẾU D+1 → D+7)</b>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Không trùng <b>Chạm (1 trong 2 số cuối)</b> hoặc không trùng <b>Tổng (hàng đơn vị tổng 2 số cuối)</b> của <b>7 ngày liền sau ngày đó (D+1 → D+7)</b></span>
+        <span><i class="swatch" style="background:#fff"></i><b>Trắng / Nền mặc định:</b> Có trùng trong 7 ngày tiếp theo hoặc đang chờ đủ 7 ngày</span>
       </div>
       <div class="controls">
         <label>Hiển thị:
@@ -69,10 +73,10 @@
     <div class="filter-bar">
       <div class="group-filter">
         <b>Chế độ xem nhóm cột:</b>
-        <button class="grp-btn active" onclick="setColGroup('all', this)">Tất cả 5 nhóm cột (Đầy đủ)</button>
+        <button class="grp-btn active" onclick="setColGroup('all', this)">Tất cả các nhóm cột (Đầy đủ)</button>
         <button class="grp-btn" onclick="setColGroup('tach', this)">1. Tách số T2 → CN (Cột A–AE)</button>
         <button class="grp-btn" onclick="setColGroup('cham', this)">2. Cầu Chạm & Cộng Dồn Tuần (Cột AM–AV)</button>
-        <button class="grp-btn" onclick="setColGroup('pascal', this)">3. Cầu Pascal & Tổng Pascal (Cột AX–BZ)</button>
+        <button class="grp-btn" onclick="setColGroup('pascal', this)">3. Tổng 2 Số Pascal (So Chạm & So Tổng) + Chi Tiết Pascal</button>
       </div>
     </div>
 
@@ -118,7 +122,8 @@
         h += `<th colspan="10">Cầu Chạm & Cộng Dồn Tuần (Cột AM → AV)</th>`;
       }
       if (showPascal) {
-        h += `<th colspan="7" class="th-sum">Tổng 2 Số Pascal (AX → BD)</th>`;
+        h += `<th colspan="7" class="th-sum-cham">Tổng 2 Số Pascal — So Chạm 7N Sau (AX → BD)</th>`;
+        h += `<th colspan="7" class="th-sum-tong">Tổng 2 Số Pascal — So Tổng 7N Sau</th>`;
         h += `<th colspan="21" class="th-pascal">Chi Tiết Soi Cầu Pascal 7 Ngày (Cột BF → BZ)</th>`;
       }
       h += `</tr><tr>`;
@@ -150,7 +155,9 @@
 
       if (showPascal) {
         h += ["T2(AX)", "T3(AY)", "T4(AZ)", "T5(BA)", "T6(BB)", "T7(BC)", "CN(BD)"]
-          .map(c => `<th class="th-sum">${c}</th>`).join("");
+          .map(c => `<th class="th-sum-cham">${c}<br><small>(So Chạm)</small></th>`).join("");
+        h += ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+          .map(c => `<th class="th-sum-tong">${c}<br><small>(So Tổng)</small></th>`).join("");
         const days = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
         days.forEach(d => {
           h += `<th class="th-pascal">${d}-4s</th><th class="th-pascal">${d}-3s</th><th class="th-pascal">${d}-2s</th>`;
@@ -158,31 +165,50 @@
       }
       h += `</tr></thead><tbody>`;
 
+      const fmtGdbGrayDe = (s) => {
+        if (!s || s.length < 5) return s || "—";
+        return `${s.slice(0, 3)}<span class="de-gray-pill">${s.slice(3)}</span>`;
+      };
+
       weeks.forEach((wk, idx) => {
         const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
         const prevWk = idx + 1 < allWeeks.length ? allWeeks[idx + 1] : null;
         const r = computeChamSheetRow(wk, prevWk, auxMap, globalData.daily_prizes);
 
-        // Lấy tập Chạm (1 trong 2 số cuối GĐB) của đúng 7 ngày liền sau đó
-        const next7 = getNext7ConsecutiveDaysStats(allWeeks, idx, 0);
-        const hasFull7 = next7.hasFull7;
-        const nextChamSet = new Set(Array.from(next7.chamSet).map(String));
-        const chamRefLabel = hasFull7
-          ? `{${Array.from(next7.chamSet).sort().join(",")}}`
-          : `Đang ${next7.count}/7N`;
+        // Tính riêng D+1..D+7 cho từng ngày T2 (0) -> CN (6)
+        const dStats = [0, 1, 2, 3, 4, 5, 6].map(dI => getNext7ConsecutiveDaysStats(allWeeks, idx, dI));
+        const d0 = dStats[0];
+        const nextChamSetD0 = new Set(Array.from(d0.chamSet).map(String));
+        const chamRefLabel = d0.hasFull7
+          ? `{${Array.from(d0.chamSet).sort().join(",")}}`
+          : `Đang ${d0.count}/7N`;
 
-        const fmtGdbGrayDe = (s) => {
-          if (!s || s.length < 5) return s || "—";
-          return `${s.slice(0, 3)}<span class="de-gray-pill">${s.slice(3)}</span>`;
-        };
         const renderBridgeCell = (val, isBold = false) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           if (s === "") return `<td></td>`;
-          if (!hasFull7) return `<td>${isBold ? `<b>${s}</b>` : s}</td>`;
-          // Chỉ kiểm tra trùng 1 trong 2 số cuối GĐB 7 ngày liền sau đó; không trùng -> tô màu vàng
-          const hit = nextChamSet.has(s);
+          if (!d0.hasFull7) return `<td>${isBold ? `<b>${s}</b>` : s}</td>`;
+          const hit = nextChamSetD0.has(s);
           const cls = hit ? "" : "bg-yellow";
           return `<td class="${cls}">${isBold ? `<b>${s}</b>` : s}</td>`;
+        };
+
+        const renderPascalSumCell = (val, dIdx, mode) => {
+          const s = (val !== undefined && val !== null) ? String(val).trim() : "";
+          const gdb = wk.nums[dIdx] || "";
+          const gdbHtml = gdb ? `<span class="pascal-gdb-sub">${fmtGdbGrayDe(gdb)}</span>` : "";
+          const baseCls = mode === 'cham' ? 'td-sum-p' : 'td-sum-t';
+          if (s === "") return `<td class="${baseCls}"></td>`;
+
+          const st = dStats[dIdx];
+          const dig = parseInt(s, 10);
+          const targetSet = mode === 'cham' ? st.chamSet : st.sumsSet;
+          const labelSet = `{${Array.from(targetSet).sort().join(",")}}`;
+          const tip = st.daysDetail.length
+            ? `GĐB: ${gdb} → 7 ngày sau (D+1..D+7): ${st.daysDetail.join(", ")} | Tập ${mode === 'cham' ? 'chạm' : 'tổng'}: ${labelSet}`
+            : `GĐB: ${gdb} → Chờ đủ 7 ngày tiếp theo (D+1..D+7)`;
+
+          const notHit = st.hasFull7 && !Number.isNaN(dig) && !targetSet.has(dig);
+          return `<td class="${notHit ? 'bg-yellow' : baseCls}" title="${tip}"><b>${s}</b>${gdbHtml}</td>`;
         };
 
         h += `<tr><td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>`;
@@ -210,13 +236,9 @@
         }
 
         if (showPascal) {
-          h += [r.AX, r.AY, r.AZ, r.BA, r.BB, r.BC, r.BD]
-            .map(v => {
-              const s = (v !== undefined && v !== null) ? String(v).trim() : "";
-              if (s === "") return `<td class="td-sum-p"></td>`;
-              const notHit = hasFull7 && !nextChamSet.has(s);
-              return `<td class="${notHit ? 'bg-yellow' : 'td-sum-p'}">${s}</td>`;
-            }).join("");
+          const pVals = [r.AX, r.AY, r.AZ, r.BA, r.BB, r.BC, r.BD];
+          h += pVals.map((v, dIdx) => renderPascalSumCell(v, dIdx, 'cham')).join("");
+          h += pVals.map((v, dIdx) => renderPascalSumCell(v, dIdx, 'tong')).join("");
           r.pascals.forEach(p => {
             h += `<td>${p.p4}</td><td>${p.p3}</td><td class="td-pascal-final">${p.p2}</td>`;
           });
