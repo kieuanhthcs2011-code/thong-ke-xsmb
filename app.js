@@ -91,7 +91,15 @@ function _weekItems(raw, baseMon) {
 }
 
 /* Trả về danh sách tuần (mới -> cũ), mỗi tuần {monday, mDt, label, nums[7]} */
+const _weeksCache = { raw: null, daily: null, val: null };
 function getNormalizedWeeks(rawWeeks) {
+  const dRaw = (typeof globalData !== "undefined" && globalData) ? globalData.daily_prizes : null;
+  if (_weeksCache.val && _weeksCache.raw === rawWeeks && _weeksCache.daily === dRaw) return _weeksCache.val;
+  const v = _computeNormalizedWeeks(rawWeeks);
+  _weeksCache.raw = rawWeeks; _weeksCache.daily = dRaw; _weeksCache.val = v;
+  return v;
+}
+function _computeNormalizedWeeks(rawWeeks) {
   const daily = (typeof globalData !== "undefined" && globalData) ? normalizeDailyPrizes(globalData.daily_prizes) : [];
   const dayKey = dt => formatVNDate(dt);
   let baseMon = new Date(2026, 10, 23);
@@ -190,7 +198,16 @@ function buildDayIndex(allWeeks) {
 
 /* 7 ngày liên tiếp NGAY SAU ngày (wIdx,dIdx): từ D+1 đến D+7.
    hasFull7 = cả 7 ngày đó đã trôi qua (D+7 <= ngày mới nhất có KQ). Ngày nghỉ quay (Tết) không có số thì bỏ qua. */
+const _n7Cache = new WeakMap();
 function getNext7ConsecutiveDaysStats(allWeeks, wIdx, dIdx) {
+  let m = _n7Cache.get(allWeeks);
+  if (!m) { m = new Map(); _n7Cache.set(allWeeks, m); }
+  const key = wIdx * 7 + dIdx;
+  let r = m.get(key);
+  if (!r) { r = _computeNext7(allWeeks, wIdx, dIdx); m.set(key, r); }
+  return r;
+}
+function _computeNext7(allWeeks, wIdx, dIdx) {
   const { map, latest } = buildDayIndex(allWeeks);
   const sumsSet = new Set(), chamSet = new Set(), daysDetail = [];
   const base = new Date(allWeeks[wIdx].mDt); base.setDate(base.getDate() + dIdx);
@@ -234,7 +251,13 @@ function auxCols(wk) {
   return out;
 }
 
+const _histCache = new WeakMap();
 function getAllHistoricalGDB(allWeeks) {
+  let h = _histCache.get(allWeeks);
+  if (!h) { h = _computeHistGDB(allWeeks); _histCache.set(allWeeks, h); }
+  return h;
+}
+function _computeHistGDB(allWeeks) {
   const list = [];
   for (let w = allWeeks.length - 1; w >= 0; w--) {
     const wk = allWeeks[w];
@@ -281,6 +304,7 @@ function computeDanStats(histGDB, targetSet) {
 /* Đánh giá 1 dàn: Max hiệu lực = max(Max chuẩn/tham chiếu, Max thực tế của các chu kỳ đã về).
    Chuỗi gan hiện tại KHÔNG bao giờ làm tăng Max. level: hit | max | watch | normal */
 const WATCH_RATIO = 0.72;
+const USE_REF_MAX_FLOOR = true; // false = chỉ dùng Max đo từ data.json
 
 
 function getCustomDans() {
@@ -509,24 +533,23 @@ function evaluateDan(histGDB, nums, referenceMax) {
   const st = computeDanStats(histGDB, new Set(nums));
   const mk = computeMketquaCycle(histGDB, nums);
   const ref = Number(referenceMax) || 0;
-  // Áp dụng chuẩn chu kỳ (kể cả ngày về: curMiss + 1) cho toàn bộ các dàn trên web
-  const realMax = mk.maxInclHit > 0 ? mk.maxInclHit : (st.maxObserved > 0 ? st.maxObserved : ref);
+  const dataMax = mk.maxInclHit > 0 ? mk.maxInclHit : (st.maxObserved > 0 ? st.maxObserved : 0);
+  // data.json chỉ có lịch sử từ ngày đầu tiên -> Max hiệu lực = max(Max đo được, Max chuẩn Excel)
+  const useRef = USE_REF_MAX_FLOOR && ref > dataMax;
+  const realMax = useRef ? ref : (dataMax > 0 ? dataMax : ref);
   const effMax = realMax;
-  const maxSpan = mk.maxInclHit > 0 ? mk.maxInclSpan : (st.maxSpan || "");
+  const firstDate = histGDB.length ? histGDB[0].date : "";
+  const maxSpan = useRef
+    ? `Chuẩn Excel ${ref}ng (data chỉ từ ${firstDate}, đo được ${dataMax}ng)`
+    : (mk.maxInclHit > 0 ? mk.maxInclSpan : (st.maxSpan || ""));
   const gan = mk.daysSince;
   let level = "normal";
   if (gan === 0) level = "hit";
   else if (realMax > 0 && gan >= realMax) level = "max";
   else if (realMax > 0 && gan >= Math.floor(realMax * WATCH_RATIO)) level = "watch";
   return {
-    ...st,
-    ...mk,
-    maxSpan,
-    gan,
-    ref,
-    realMax,
-    effMax,
-    level,
+    ...st, ...mk,
+    maxObserved: realMax, maxData: dataMax, maxSpan, gan, ref, realMax, effMax, level,
     over: realMax > 0 ? Math.max(0, gan - realMax) : 0
   };
 }
@@ -748,11 +771,22 @@ function getAllDanForMonitor() {
   return out;
 }
 
-function exportFullWorkbook() {
-  if (!globalData || typeof XLSX === "undefined") {
-    alert("Đang tải dữ liệu hoặc thư viện Excel, vui lòng đợi 2 giây!");
-    return;
-  }
+let _xlsxPromise = null;
+function loadXLSXLib() {
+  if (typeof XLSX !== "undefined") return Promise.resolve();
+  if (_xlsxPromise) return _xlsxPromise;
+  _xlsxPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
+    sc.onload = resolve;
+    sc.onerror = () => { _xlsxPromise = null; reject(new Error("Không tải được thư viện Excel")); };
+    document.head.appendChild(sc);
+  });
+  return _xlsxPromise;
+}
+async function exportFullWorkbook() {
+  if (!globalData) { alert("Đang tải dữ liệu, vui lòng đợi giây lát!"); return; }
+  try { await loadXLSXLib(); } catch (e) { alert(e.message + ". Kiểm tra mạng rồi thử lại."); return; }
   const wb = XLSX.utils.book_new();
   const borderStyle = { top: { style: "thin", color: { rgb: "BFBFBF" } }, bottom: { style: "thin", color: { rgb: "BFBFBF" } }, left: { style: "thin", color: { rgb: "BFBFBF" } }, right: { style: "thin", color: { rgb: "BFBFBF" } } };
   const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "1E569B" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderStyle };
@@ -878,8 +912,9 @@ function exportFullWorkbook() {
 async function loadSharedData(onReadyCallback) {
   const statusEl = document.getElementById('status-text');
   try {
-    let res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
-    if (!res.ok) res = await fetch('data.json');
+    let res = await (window.__dataP || fetch('data.json', { cache: 'no-cache' }));
+    window.__dataP = null;
+    if (!res.ok) res = await fetch('data.json', { cache: 'no-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     globalData = await res.json();
     try {

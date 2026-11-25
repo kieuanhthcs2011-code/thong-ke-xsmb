@@ -1,18 +1,25 @@
 {
   "hosting": {
     "public": ".",
+    "cleanUrls": false,
     "ignore": [
       "firebase.json",
       ".firebaserc",
       "**/.*",
       "**/node_modules/**",
       "**/__pycache__/**",
-      "update_xsmb.py",
-      "*.md"
+      "**/*.py",
+      "**/*.pyc",
+      "**/*.md",
+      "**/*.yml",
+      "**/*adminsdk*.json",
+      "**/*service*account*.json",
+      "**/*.log"
     ],
     "headers": [
       { "source": "/data.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
-      { "source": "**/*.@(html|js|css)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+      { "source": "**/*.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "**/*.@(js|css)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=86400" }] }
     ]
   }
 }

@@ -338,6 +338,59 @@ def derive_aux_maps(data, weeks):
 
 
 # ---------------------------------------------------------------- main
+# ---------------------------------------------------------------- nạp lịch sử GĐB từ biến môi trường (tùy chọn)
+HIST_PAIR_RE = re.compile(r"(\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{1,2}-\d{1,2})\D{1,6}?(\d{5})(?!\d)")
+
+
+def fetch_history_from_env():
+    """Đọc cặp (ngày, GĐB 5 số) từ XSMB_HISTORY_PAIRS (dd/mm/yyyy=abcde, cách nhau bởi dấu phẩy/xuống dòng)
+    và từ các link trong XSMB_HISTORY_URLS (văn bản/CSV/JSON). Lỗi nguồn nào bỏ qua nguồn đó."""
+    pairs = {}
+    raw = os.environ.get("XSMB_HISTORY_PAIRS", "") or ""
+    for m in HIST_PAIR_RE.finditer(raw):
+        dt = parse_vn(m.group(1))
+        if dt:
+            pairs[fmt(dt)] = m.group(2)
+    urls = [u.strip() for u in re.split(r"[,\s]+", os.environ.get("XSMB_HISTORY_URLS", "") or "") if u.strip()]
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            text = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", errors="ignore")
+        except Exception as e:  # noqa: BLE001
+            print(f"Lỗi nguồn lịch sử {url}: {e}")
+            continue
+        n0 = len(pairs)
+        for m in HIST_PAIR_RE.finditer(text):
+            dt = parse_vn(m.group(1))
+            if dt:
+                pairs.setdefault(fmt(dt), m.group(2))
+        print(f"Nguồn lịch sử {url}: +{len(pairs) - n0} ngày")
+    return sorted(pairs.items(), key=lambda kv: parse_vn(kv[0]))
+
+
+def ingest_historical_gdb_pairs(data, pairs):
+    """Bổ sung GĐB vào weeks_gdb cho các ngày còn TRỐNG (không ghi đè ô đã có). Trả về số ngày đã thêm."""
+    if not pairs:
+        return 0
+    daily = normalize_daily(data.get("daily_prizes"))
+    before = 0
+    for w in data.get("weeks_gdb") or []:
+        before += sum(1 for c in (w.get("nums") or []) if FIVE.match(str(c or "")))
+    extra = {}
+    for d, five in pairs:
+        dt = parse_vn(d)
+        if not dt or not FIVE.match(five):
+            continue
+        mon = dt - timedelta(days=dt.weekday())
+        extra.setdefault(mon, [""] * 7)[dt.weekday()] = five
+    raw = list(data.get("weeks_gdb") or []) + [{"monday": fmt(m), "nums": n} for m, n in extra.items()]
+    weeks, _log = clean_weeks(raw, daily)
+    after = sum(1 for w in weeks for c in w["nums"] if FIVE.match(c))
+    if after > before:
+        data["weeks_gdb"] = weeks
+    return max(0, after - before)
+
+
 def main():
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -408,12 +461,15 @@ def main():
     for it in rss_items:
         aux[it["date"]] = {"g1": it["parsed"]["g1"], "g7": it["parsed"]["g7"]}
     backfill_daily_aux(data, weeks, budget=int(os.environ.get("XSMB_AUX_BUDGET", "60")))
-    hist_pairs = fetch_history_from_env()
-    if hist_pairs:
-        n_hist = ingest_historical_gdb_pairs(data, hist_pairs)
-        if n_hist:
-            weeks = data.get("weeks_gdb") or []
-            print(f"Đã nạp thêm {n_hist} ngày lịch sử GĐB (tổng {len(weeks)} tuần).")
+    try:
+        hist_pairs = fetch_history_from_env()
+        if hist_pairs:
+            n_hist = ingest_historical_gdb_pairs(data, hist_pairs)
+            if n_hist:
+                weeks = data.get("weeks_gdb") or []
+                print(f"Đã nạp thêm {n_hist} ngày lịch sử GĐB (tổng {len(weeks)} tuần).")
+    except Exception as e:  # noqa: BLE001
+        print("Cảnh báo: bỏ qua nạp lịch sử:", e)
     derive_aux_maps(data, weeks)
 
     if rss_items:
@@ -431,7 +487,7 @@ def main():
         data["last_updated"] = now_vn
         tmp = DATA_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
         os.replace(tmp, DATA_FILE)
         print("Đã cập nhật Thongke.web.app lúc", now_vn)
     else:

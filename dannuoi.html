@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trang 2: Dàn Nuôi & Chu Kỳ (Không Dàn Trùng) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script>window.__dataP=fetch("data.json",{cache:"no-cache"});</script>
   <style>
     .sub-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
     .sub-btn {
@@ -476,7 +476,7 @@
           <td>${st.lastHitDate} (<b>${st.lastHitDe}</b>)</td>
           <td><b>${st.daysSince} ngày</b></td>
           <td style="font-size:14px;"><b>${maxGanNhatVal} ngày</b><span class="de-sub">${st.maxSpan || "Chuẩn: " + st.ref + "ng"}</span></td>
-          <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · thực tế ${st.maxObserved}${st.over ? ' · đang vượt +' + st.over : ''})</span></td>
+          <td><b>${st.effMax} ngày</b> <span class="de-sub">(chuẩn ${st.ref} · đo được ${st.maxData}${st.over ? ' · đang vượt +' + st.over : ''})</span></td>
           <td>${badge}</td>
         </tr>`;
       });
@@ -538,8 +538,8 @@
       ctConfigs.forEach(item => {
         const st = evaluateDan(histGDB, item.nums, item.excelMax);
         const mk = computeMketquaCycle(histGDB, item.nums);
-        const ganMaxVal = mk.maxInclHit > 0 ? mk.maxInclHit : (st.maxObserved > 0 ? st.maxObserved : st.ref);
-        const ganMaxSpan = mk.maxInclHit > 0 ? mk.maxInclSpan : (st.maxSpan || "");
+        const ganMaxVal = st.realMax;
+        const ganMaxSpan = st.maxSpan || "";
         let cls = "", badge = `<span class="badge-status st-normal">Bình thường</span>`;
         let gBadge = `<span class="gan-inline-badge">gan ${st.daysSince} ngày</span>`;
         if (st.daysSince === 0) {
@@ -584,8 +584,8 @@
           const others = customList.filter((_, j) => j !== idx).map(o => ({ name: "Dàn cá nhân: " + o.name, nums: o.nums }));
           const dups = findDuplicateDans(item.nums, others);
           const dupHtml = dups.length ? `<span style="color:#b91c1c; font-weight:700;">⚠ Trùng: ${dups.join("; ")}</span>` : `<span style="color:#15803d;">Riêng biệt</span>`;
-          const st = computeDanStats(histGDB, new Set(item.nums));
-          const autoMax = st.maxObserved > 0 ? st.maxObserved : (item.maxDays || 7);
+          const st = evaluateDan(histGDB, item.nums, item.maxClosed || item.maxDays || 0);
+          const autoMax = st.realMax > 0 ? st.realMax : 7;
           const cls = st.daysSince === 0 ? "bg-green" : (st.daysSince >= autoMax ? "bg-red-alert" : "");
           const gBadge = st.daysSince === 0
             ? `<span class="gan-inline-badge is-zero">vừa về</span>`
