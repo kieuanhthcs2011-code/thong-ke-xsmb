@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trang 5: Cầu Chạm / Tổng / Bộ (Sheet Tính) - Thongke.web.app</title>
+  <title>Trang 6: Cầu Chạm / Tổng / Bộ (Sheet Tính) - Thongke.web.app</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
@@ -11,7 +11,6 @@
     .th-gold { background: #b85d00 !important; }
     .th-bo { background: #7030a0 !important; }
     .td-gdb { background: #f2fbf5; font-weight: 700; color: #0f3d0f; }
-    .td-highlight { background: #fff200; font-weight: 800; color: #c00000; }
     .td-bo { background: #f3e8ff; font-weight: 700; color: #4c1d95; }
   </style>
 </head>
@@ -37,7 +36,8 @@
     <div class="toolbar">
       <div class="legend">
         <b>🧮 TRANG 6: BẢNG CẦU CHẠM – TỔNG – BỘ THEO TUẦN (SHEET 2 "TÍNH" CỘT AA → BA)</b>
-        <span style="color:#555;">Tự động tách & cộng công thức từ 7 ngày GĐB và Giải Nhất Chủ Nhật</span>
+        <span><i class="swatch" style="background:var(--yellow)"></i><b>Vàng (#FFF200):</b> Ô cầu <b>chưa về</b> Chạm hoặc Tổng tương ứng trong 7 ngày tuần kế tiếp</span>
+        <span><i class="swatch" style="background:#fff"></i><b>Trắng:</b> Đã về hoặc đang chờ đủ 7 ngày tuần kế tiếp</span>
       </div>
       <div class="controls">
         <label>Hiển thị:
@@ -66,7 +66,8 @@
     function renderPage() {
       if (!globalData) return;
       const limit = parseInt(document.getElementById('limit-select').value, 10);
-      const weeks = getNormalizedWeeks(globalData.weeks_gdb).slice(0, limit);
+      const allWeeks = getNormalizedWeeks(globalData.weeks_gdb);
+      const weeks = allWeeks.slice(0, limit);
       const g1cnMap = globalData.tinh_g1cn_by_mon_gdb || {};
 
       let h = `<thead>
@@ -110,14 +111,42 @@
         const tag = idx === 0 ? "Hiện tại" : `Tuần -${idx}`;
         const r = computeTinhCauRow(wk, g1cnMap, globalData.daily_prizes);
 
+        // Lấy tập Tổng & Chạm của tuần kế tiếp (khi đủ 7/7 ngày)
+        const nextWk = idx > 0 ? allWeeks[idx - 1] : null;
+        const nextSumSet = new Set();
+        const nextChamSet = new Set();
+        let hasFullNext7 = false;
+        if (nextWk && Array.isArray(nextWk.nums)) {
+          const validNums = nextWk.nums.filter(x => x && /^\d{5}$/.test(x));
+          if (validNums.length === 7) {
+            hasFullNext7 = true;
+            validNums.forEach(num => {
+              const d1 = parseInt(num[3], 10);
+              const d2 = parseInt(num[4], 10);
+              nextChamSet.add(d1);
+              nextChamSet.add(d2);
+              nextSumSet.add((d1 + d2) % 10);
+            });
+          }
+        }
+
+        const cellClass = (val, mode) => {
+          if (!hasFullNext7 || val === "" || val === undefined || val === null) return "";
+          const dig = parseInt(String(val).trim(), 10);
+          if (Number.isNaN(dig) || dig < 0 || dig > 9) return "";
+          if (mode === "tong") return !nextSumSet.has(dig) ? "bg-yellow" : "";
+          if (mode === "cham") return !nextChamSet.has(dig) ? "bg-yellow" : "";
+          return "";
+        };
+
         h += `<tr>
           <td class="week-col"><b>${tag}</b><span class="de-sub">${wk.label}</span></td>
-          <td><b>${r.AA}</b></td>
+          <td class="${cellClass(r.AA, 'tong')}"><b>${r.AA}</b></td>
           <td>${r.AB}</td>
-          <td><b>${r.AC}</b></td>
-          <td><b>${r.AD}</b></td>
-          <td><b>${r.AE}</b></td>
-          <td><b>${r.AF}</b></td>
+          <td class="${cellClass(r.AC, 'tong')}"><b>${r.AC}</b></td>
+          <td class="${cellClass(r.AD, 'tong')}"><b>${r.AD}</b></td>
+          <td class="${cellClass(r.AE, 'tong')}"><b>${r.AE}</b></td>
+          <td class="${cellClass(r.AF, 'cham')}"><b>${r.AF}</b></td>
           <td class="td-gdb">${r.AG || "—"}</td>
           <td class="td-gdb">${r.AH || "—"}</td>
           <td class="td-gdb">${r.AI || "—"}</td>
@@ -125,17 +154,17 @@
           <td class="td-gdb">${r.AK || "—"}</td>
           <td class="td-gdb">${r.AL || "—"}</td>
           <td class="td-gdb">${r.AM || "—"}</td>
-          <td class="td-highlight">${r.AN}</td>
-          <td class="td-highlight">${r.AO}</td>
-          <td><b>${r.AP}</b></td>
-          <td><b>${r.AQ}</b></td>
-          <td><b>${r.AR}</b></td>
+          <td class="${cellClass(r.AN, 'cham')}"><b>${r.AN}</b></td>
+          <td class="${cellClass(r.AO, 'tong')}"><b>${r.AO}</b></td>
+          <td class="${cellClass(r.AP, 'tong')}"><b>${r.AP}</b></td>
+          <td class="${cellClass(r.AQ, 'tong')}"><b>${r.AQ}</b></td>
+          <td class="${cellClass(r.AR, 'tong')}"><b>${r.AR}</b></td>
           <td><b>${r.AS}</b></td>
-          <td><b>${r.AT}</b></td>
+          <td class="${cellClass(r.AT, 'tong')}"><b>${r.AT}</b></td>
           <td class="td-bo">${r.AU}</td>
-          <td><b>${r.AY}</b></td>
-          <td><b>${r.AZ}</b></td>
-          <td><b>${r.BA}</b></td>
+          <td class="${cellClass(r.AY, 'tong')}"><b>${r.AY}</b></td>
+          <td class="${cellClass(r.AZ, 'cham')}"><b>${r.AZ}</b></td>
+          <td class="${cellClass(r.BA, 'cham')}"><b>${r.BA}</b></td>
           <td style="text-align:left; font-size:11px; color:#4c1d95;">${r.AU_bo}</td>
         </tr>`;
       });
