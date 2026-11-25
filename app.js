@@ -604,7 +604,6 @@ function getDanConfigs() {
     { group: "Chú thích Cột T", short: "T44 (44s)", name: "Cột T44: Dàn 44 số (Chú thích)", count: 44, nums: ["02","05","08","10","11","14","15","16","17","21","22","24","29","30","31","32","33","35","40","41","43","44","45","48","49","50","53","59","63","65","67","68","75","77","79","80","88","89","90","91","92","93","97","99"], excelMax: 16 }
   ];
 }
-  return out;
 }
 
 function getLichNuoiThang(histGDB, refYear, refMonth) {
@@ -879,11 +878,22 @@ async function loadSharedData(onReadyCallback) {
     if (!res.ok) res = await fetch('data.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     globalData = await res.json();
-    if (Array.isArray(globalData.daily_prizes)) {
-      globalData.daily_prizes = normalizeDailyPrizes(globalData.daily_prizes);
+    try {
+      if (Array.isArray(globalData.daily_prizes)) {
+        globalData.daily_prizes = normalizeDailyPrizes(globalData.daily_prizes);
+      }
+    } catch (normErr) {
+      console.warn("normalizeDailyPrizes warning:", normErr);
     }
     if (statusEl) statusEl.innerText = "Cập nhật tự động: " + (globalData.last_updated || "—");
-    if (typeof onReadyCallback === "function") onReadyCallback(globalData);
+    if (typeof onReadyCallback === "function") {
+      try {
+        onReadyCallback(globalData);
+      } catch (cbErr) {
+        console.error("onReadyCallback error:", cbErr);
+        if (statusEl) statusEl.innerText = "Lỗi dựng giao diện: " + cbErr.message;
+      }
+    }
   } catch (e) {
     console.error("loadSharedData error:", e);
     if (statusEl) statusEl.innerText = "Lỗi tải data.json: " + e.message;
