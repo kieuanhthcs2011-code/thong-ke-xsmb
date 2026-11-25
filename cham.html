@@ -200,11 +200,10 @@
         const renderPascalSumCell = (val, dIdx, mode) => {
           const s = (val !== undefined && val !== null) ? String(val).trim() : "";
           const gdb = wk.nums[dIdx] || "";
-          const pInfo = r.pascals && r.pascals[dIdx] ? r.pascals[dIdx] : null;
-          const sumVal = pInfo && pInfo.sum2 !== undefined && pInfo.sum2 !== ""
-            ? pInfo.sum2
-            : ((gdb && gdb.length >= 5) ? String((parseInt(gdb[3], 10) + parseInt(gdb[4], 10)) % 10) : "");
-          const cornerHtml = sumVal !== "" ? `<span class="cell-sum-corner" title="Tổng: ${sumVal}">${sumVal}</span>` : "";
+          const sumVal = (gdb && gdb.length >= 5)
+            ? String((parseInt(gdb[3], 10) + parseInt(gdb[4], 10)) % 10)
+            : "";
+          const cornerHtml = sumVal !== "" ? `<span class="cell-sum-corner" title="Tổng 2 số cuối Đề (${gdb.slice(3)}): ${sumVal}">${sumVal}</span>` : "";
           const gdbHtml = gdb ? `<span class="pascal-gdb-sub">${fmtGdbGrayDe(gdb)}</span>` : "";
           const baseCls = mode === 'cham' ? 'td-sum-p has-corner-sum' : 'td-sum-t has-corner-sum';
           if (s === "") return `<td class="${baseCls}">${cornerHtml}</td>`;
